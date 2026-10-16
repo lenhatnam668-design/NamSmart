@@ -48,7 +48,7 @@ textarea{width:100%;border:0;outline:0;resize:none;min-height:50px;max-height:18
 <body>
 <div class="app">
 <aside class="sidebar">
-  <div class="brand"><div class="logo">S</div><span>Study AI</span></div>
+  <div class="brand"><div class="logo">S</div><span>Nam Smart</span></div>
   <button class="newchat" id="newChat">＋ &nbsp; Cuộc trò chuyện mới</button>
   <div class="section-label">Môn học</div>
   <div class="subjects" id="subjects">
@@ -68,7 +68,7 @@ textarea{width:100%;border:0;outline:0;resize:none;min-height:50px;max-height:18
     <div class="welcome" id="welcome">
       <div class="eyebrow">YOUR PERSONAL STUDY PARTNER</div>
       <h1>Hôm nay mình<br>học gì nhỉ? <span>✦</span></h1>
-      <p class="sub">Đặt câu hỏi bất kỳ, gửi bài tập hoặc nhờ giải thích một khái niệm khó. Study AI sẽ cùng bạn tìm hiểu từng bước.</p>
+      <p class="sub">Đặt câu hỏi bất kỳ, gửi bài tập hoặc nhờ giải thích một khái niệm khó. Nam Smart sẽ cùng bạn tìm hiểu từng bước.</p>
       <div class="cards">
         <button class="suggest" data-prompt="Giải thích cách giải phương trình bậc hai ax² + bx + c = 0 bằng ví dụ đơn giản."><span class="emoji">📐</span><strong>Giải bài Toán</strong><span>Hiểu cách làm, không chỉ lấy đáp án.</span></button>
         <button class="suggest" data-prompt="Hướng dẫn mình lập dàn ý phân tích một tác phẩm văn học, kèm ví dụ ngắn."><span class="emoji">📚</span><strong>Phân tích Văn học</strong><span>Lập dàn ý và tìm luận điểm rõ ràng.</span></button>
@@ -80,7 +80,7 @@ textarea{width:100%;border:0;outline:0;resize:none;min-height:50px;max-height:18
   </section>
   <div class="composer-wrap">
     <form class="composer" id="chatForm">
-      <textarea id="prompt" rows="2" placeholder="Hỏi Study AI bất cứ điều gì…" maxlength="6000" aria-label="Nhập câu hỏi"></textarea>
+      <textarea id="prompt" rows="2" placeholder="Hỏi Nam Smart bất cứ điều gì…" maxlength="6000" aria-label="Nhập câu hỏi"></textarea>
       <div class="composer-bottom"><span class="hint">Enter để gửi · Shift + Enter để xuống dòng</span><button class="send" id="sendBtn" type="submit">Gửi ↗</button></div>
     </form>
     <div class="disclaimer">AI có thể mắc lỗi — hãy kiểm tra lại thông tin quan trọng.</div>
@@ -118,7 +118,7 @@ async function sendMessage(text){
   history.push({role:'user',content:fullText}); save();
   renderMessage('user',text);
   promptEl.value=''; promptEl.style.height='auto';
-  const loading=renderMessage('assistant','Study AI đang suy nghĩ…'); loading.classList.add('typing');
+  const loading=renderMessage('assistant','Nam Smart đang suy nghĩ…'); loading.classList.add('typing');
   try{
     const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});
     const data=await res.json();
@@ -138,7 +138,7 @@ promptEl.addEventListener('input',()=>{promptEl.style.height='auto';promptEl.sty
 document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>{promptEl.value=b.dataset.prompt;sendMessage(promptEl.value);}));
 document.querySelectorAll('.subject').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.subject').forEach(x=>x.classList.remove('active'));b.classList.add('active');subject=b.dataset.subject;
-  promptEl.placeholder=subject==='Tất cả môn học'?'Hỏi Study AI bất cứ điều gì…':`Hỏi về ${subject}…`;
+  promptEl.placeholder=subject==='Tất cả môn học'?'Hỏi Nam Smart bất cứ điều gì…':`Hỏi về ${subject}…`;
 }));
 $('#newChat').addEventListener('click',()=>{history=[];save();messagesEl.innerHTML='';welcome.style.display='';promptEl.value='';});
 try{const old=JSON.parse(localStorage.getItem(storageKey)||'[]');if(Array.isArray(old))history=old.filter(m=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string');redraw();}catch(e){}
