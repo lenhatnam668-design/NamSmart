@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nam Smart - Trợ lý thông minh</title>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #007bff;
+            --bg-color: #f4f7f6;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .logo-container img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .logo-container h2 {
+            font-size: 18px;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        .new-chat-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .new-chat-btn:hover { background-color: #004085; }
+        
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .history-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover { background: #e2e6ea; }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .chat-header {
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #ddd;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background: var(--secondary-color);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .bot-message {
+            background: white;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+            font-size: 15px;
+        }
+        .chat-input-area button {
+            padding: 0 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .chat-input-area button:hover { background-color: #004085; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Nam Smart Logo">
+            <h2>Nam Smart</h2>
+        </div>
+        <button class="new-chat-btn" onclick="clearHistory()">+ Cuộc trò chuyện mới</button>
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: bold;">Lịch sử trò chuyện:</div>
+        <ul id="historyList" class="history-list">
+        </ul>
+    </div>
+
+    <div class="main-chat">
+        <div class="chat-header">Trang chủ Trợ lý Nam Smart</div>
+        <div id="chatBox" class="chat-box">
+            <div class="message bot-message">Xin chào! Tôi là trợ lý Nam Smart. Tôi có thể giúp gì cho bạn hôm nay?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="Nhập tin nhắn của bạn..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Gửi</button>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            fetch('/api/history')
+                .then(res => res.json())
+                .then(data => {
+                    const historyList = document.getElementById('historyList');
+                    const chatBox = document.getElementById('chatBox');
+                    
+                    data.forEach(item => {
+                        chatBox.innerHTML += `<div class="message user-message">${escapeHtml(item.user)}</div>`;
+                        chatBox.innerHTML += `<div class="message bot-message">${escapeHtml(item.bot)}</div>`;
+                        
+                        const li = document.createElement('li');
+                        li.className = 'history-item';
+                        li.textContent = item.user;
+                        historyList.appendChild(li);
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                });
+        };
+
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatBox = document.getElementById('chatBox');
+            chatBox.innerHTML += `<div class="message user-message">${escapeHtml(text)}</div>`;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const replyText = data.answer || data.error || "Có lỗi xảy ra.";
+                chatBox.innerHTML += `<div class="message bot-message">${escapeHtml(replyText)}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+                
+                const historyList = document.getElementById('historyList');
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.textContent = text;
+                historyList.appendChild(li);
+            })
+            .catch(err => {
+                chatBox.innerHTML += `<div class="message bot-message">Lỗi kết nối máy chủ!</div>`;
+            });
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function clearHistory() {
+            fetch('/api/clear', { method: 'POST' })
+                .then(() => {
+                    document.getElementById('chatBox').innerHTML = `<div class="message bot-message">Cuộc trò chuyện mới đã bắt đầu. Chào bạn!</div>`;
+                    document.getElementById('historyList').innerHTML = '';
+                });
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
