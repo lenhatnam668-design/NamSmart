@@ -29,10 +29,12 @@
 </head>
 <body>
     <div class="app-shell">
-        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="brand">
-                <div class="brand-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <!-- Thay icon bằng tệp logo.jpg từ thư mục static -->
+                <div class="brand-icon" style="padding:0; overflow:hidden; background:none; box-shadow:none;">
+                    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" style="width:100%; height:100%; object-fit:cover; border-radius:13px;">
+                </div>
                 <div>
                     <strong>Nam Smart</strong>
                     <small>YOUR STUDY COMPANION</small>
@@ -63,10 +65,7 @@
                 <div class="version"><span class="status-dot"></span> Nam Smart <span>v2.0</span></div>
             </div>
         </aside>
-
         <div class="overlay" id="overlay"></div>
-
-        <!-- Main Content -->
         <main class="main">
             <header class="topbar">
                 <div class="topbar-left">
@@ -78,9 +77,7 @@
                     <div class="avatar">NS</div>
                 </div>
             </header>
-
             <section class="content" id="content">
-                <!-- Home Screen -->
                 <div class="home" id="homeScreen">
                     <div class="hero">
                         <div class="hero-badge"><i class="fa-solid fa-sparkles"></i> TRỢ LÝ HỌC TẬP THÔNG MINH</div>
@@ -92,7 +89,6 @@
                             <span class="visual-star two">✧</span>
                         </div>
                     </div>
-
                     <div class="section-heading">
                         <div>
                             <h2>Khám phá cùng Nam Smart</h2>
@@ -100,7 +96,6 @@
                         </div>
                         <span>4 chủ đề <i class="fa-solid fa-arrow-trend-up"></i></span>
                     </div>
-
                     <div class="feature-grid">
                         <button class="feature-card blue" data-prompt="Giải giúp mình phương trình 2x - 1 = 0, trình bày từng bước bằng công thức toán học.">
                             <span class="feature-icon"><i class="fa-solid fa-calculator"></i></span>
@@ -127,7 +122,6 @@
                             <span class="feature-arrow"><i class="fa-solid fa-arrow-right"></i></span>
                         </button>
                     </div>
-
                     <div class="photo-banner">
                         <div class="photo-icon"><i class="fa-solid fa-camera"></i></div>
                         <div>
@@ -137,8 +131,6 @@
                         <button id="bannerUpload">Tải ảnh lên <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
                     </div>
                 </div>
-
-                <!-- History Page -->
                 <div class="history-page hidden" id="historyScreen">
                     <div class="page-title">
                         <span class="page-icon"><i class="fa-regular fa-clock"></i></span>
@@ -149,8 +141,6 @@
                     </div>
                     <div class="history-grid" id="historyGrid"></div>
                 </div>
-
-                <!-- Chat Page -->
                 <div class="chat-page hidden" id="chatScreen">
                     <div class="chat-intro">
                         <div class="chat-intro-icon"><i class="fa-solid fa-robot"></i></div>
@@ -162,8 +152,6 @@
                     <div id="messageContainer" class="messages" aria-live="polite"></div>
                 </div>
             </section>
-
-            <!-- Composer Area -->
             <div class="composer-area">
                 <div class="image-preview hidden" id="imagePreview">
                     <img id="previewImg" alt="Ảnh chuẩn bị gửi">
