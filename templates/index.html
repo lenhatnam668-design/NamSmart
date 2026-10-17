@@ -8,7 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Cấu hình thư viện MathJax hiển thị công thức toán học đẹp -->
+    <!-- Thư viện Markdown parser để hiển thị định dạng đẹp -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+
+    <!-- Cấu hình thư viện MathJax hiển thị công thức toán học chuẩn -->
     <script>
         window.MathJax = {
             tex: {
@@ -245,7 +248,7 @@
         }
 
         .message {
-            max-width: 80%;
+            max-width: 85%;
             padding: 14px 18px;
             border-radius: 16px;
             font-size: 15px;
@@ -258,6 +261,7 @@
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 4px;
+            white-space: pre-wrap;
         }
 
         .bot-message {
@@ -268,6 +272,12 @@
             border-bottom-left-radius: 4px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
+
+        /* Định dạng hiển thị markdown bên trong tin nhắn bot */
+        .bot-message p { margin-bottom: 8px; }
+        .bot-message p:last-child { margin-bottom: 0; }
+        .bot-message ul, .bot-message ol { padding-left: 20px; margin-bottom: 8px; }
+        .bot-message strong { font-weight: 600; color: #0f172a; }
 
         /* Ô nhập liệu tin nhắn */
         .input-container {
@@ -415,8 +425,18 @@
             const container = document.getElementById('messageContainer');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${sender}-message`;
-            msgDiv.textContent = text;
+            
+            if (sender === 'bot') {
+                // Sử dụng marked để parse markdown thành HTML cho bot
+                msgDiv.innerHTML = marked.parse(text);
+            } else {
+                msgDiv.textContent = text;
+            }
+
             container.appendChild(msgDiv);
+
+            // Kích hoạt render lại MathJax sau khi gắn tin nhắn vào DOM
+            triggerMathJax();
 
             if (scroll) {
                 const chatBox = document.getElementById('chatBox');
@@ -449,7 +469,6 @@
             .then(data => {
                 const replyText = data.answer || data.error || "Có lỗi xảy ra.";
                 appendMessage(replyText, 'bot');
-                triggerMathJax(); // Kích hoạt hiển thị công thức toán học chuẩn đẹp
                 addHistorySidebar(text);
             })
             .catch(() => {
