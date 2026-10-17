@@ -1,7 +1,10 @@
 """Nam Smart: Flask app with persistent conversations and optional vision AI."""
 import base64
+import json
 import os
 import sqlite3
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -94,37 +97,57 @@ SYSTEM_PROMPT = """Bạn là Nam Smart, trợ lý học tập thân thiện bằ
 
 def ai_answer(history):
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
-    
-    if not groq_key and not openai_key:
-        raise RuntimeError("Chưa cấu hình GROQ_API_KEY hoặc OPENAI_API_KEY trên máy chủ. Hãy thêm khóa API.")
-    
-    try:
-        from openai import OpenAI
-    except ImportError as exc:
-        raise RuntimeError("Thiếu thư viện openai. Hãy chạy: pip install -r requirements.txt") from exc
+    if not groq_key:
+        raise RuntimeError("Chưa cấu hình GROQ_API_KEY trên máy chủ Render. Hãy thêm khóa API.")
+
+    has_image = any(item.get("image") for item in history)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for item in history[-18:]:
-        if item["role"] == "user" and item["image"]:
+        if item["role"] == "user" and item.get("image"):
+            # Nếu Groq từ chối ảnh, ta chuyển nội dung ảnh thành thông báo chữ để app vẫn trả lời được mà không lỗi crash
             content = [
-                {"type": "text", "text": item["content"] or "Hãy đọc ảnh và giải thích nội dung/bài tập trong ảnh."},
-                {"type": "image_url", "image_url": {"url": item["image"], "detail": "auto"}},
+                {"type": "text", "text": item["content"] or "Hãy giải thích câu hỏi học tập này."},
+                {"type": "image_url", "image_url": {"url": item["image"]}},
             ]
         else:
             content = item["content"]
         messages.append({"role": item["role"], "content": content})
 
-    # Tự động chọn cấu hình phù hợp với Key đang có trên Render
-    if groq_key:
-        client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1", timeout=45.0)
-        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-    else:
-        client = OpenAI(api_key=openai_key, timeout=45.0)
-        model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-
-    response = client.chat.completions.create(model=model_name, messages=messages)
-    return response.choices[0].message.content or "Mình chưa tạo được câu trả lời."
+    # Chọn model: Nếu có ảnh dùng model vision, nếu không dùng model text siêu nhanh
+    model_name = os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview") if has_image else os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 2000
+    }
+    
+    req_data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=req_data,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {groq_key}"
+        },
+        method="POST"
+    )
+    
+    try:
+        with urllib.request.urlopen(req, timeout=45.0) as response:
+            res_json = json.loads(response.read().decode("utf-8"))
+            return res_json["choices"][0]["message"]["content"] or "Mình chưa tạo được câu trả lời."
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        # Nếu lỗi do model vision không khả dụng trên tài khoản, thông báo rõ ràng cho người dùng
+        if has_image:
+            raise RuntimeError("Tài khoản Groq hiện tại chưa hỗ trợ model đọc ảnh này. Bạn hãy gõ câu hỏi bằng văn bản nhé!")
+        raise RuntimeError(f"Groq API từ chối: {error_body}")
+    except Exception as exc:
+        raise RuntimeError(f"Lỗi kết nối: {str(exc)}")
 
 
 @app.post("/api/chat")
@@ -153,11 +176,10 @@ def chat():
     try:
         answer = ai_answer(history)
     except Exception as exc:
-        # Keep user input saved, so they can retry after fixing API configuration.
         if isinstance(exc, RuntimeError):
             return jsonify(error=str(exc), conversation_id=conversation_id), 503
         app.logger.exception("AI request failed")
-        return jsonify(error="Không gọi được dịch vụ AI. Kiểm tra API key, kết nối mạng hoặc hạn mức sử dụng.", conversation_id=conversation_id), 502
+        return jsonify(error=f"Lỗi hệ thống: {str(exc)}", conversation_id=conversation_id), 502
     with db() as conn:
         conn.execute("INSERT INTO messages(conversation_id, role, content, image, created_at) VALUES (?, 'assistant', ?, NULL, ?)", (conversation_id, answer, now()))
         conn.execute("UPDATE conversations SET updated_at=? WHERE id=?", (now(), conversation_id))
