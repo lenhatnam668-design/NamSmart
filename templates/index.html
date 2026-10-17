@@ -8,15 +8,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Thư viện Markdown parser để hiển thị định dạng đẹp -->
+    <!-- Thư viện Markdown parser -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 
-    <!-- Cấu hình thư viện MathJax hiển thị công thức toán học chuẩn -->
+    <!-- Cấu hình MathJax -->
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['\\(', '\\)'], ['$', '$']],
-                displayMath: [['[', ']'], ['$$', '$$']]
+                displayMath: [['\\[', '\\]'], ['$$', '$$']]
             },
             svg: { fontCache: 'global' }
         };
@@ -167,7 +167,7 @@
             align-items: center;
         }
 
-        /* Trang chủ chào mừng (Welcome Dashboard) */
+        /* Trang chủ chào mừng */
         .welcome-screen {
             max-width: 720px;
             width: 100%;
@@ -198,7 +198,6 @@
             margin-bottom: 30px;
         }
 
-        /* 4 Thẻ gợi ý môn học bắt mắt */
         .feature-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -238,7 +237,7 @@
             line-height: 1.4;
         }
 
-        /* Khung tin nhắn trò chuyện */
+        /* Khung tin nhắn */
         .message-container {
             width: 100%;
             max-width: 760px;
@@ -271,31 +270,69 @@
             border: 1px solid var(--border-color);
             border-bottom-left-radius: 4px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
         }
 
-        /* Định dạng hiển thị markdown bên trong tin nhắn bot */
         .bot-message p { margin-bottom: 8px; }
         .bot-message p:last-child { margin-bottom: 0; }
         .bot-message ul, .bot-message ol { padding-left: 20px; margin-bottom: 8px; }
         .bot-message strong { font-weight: 600; color: #0f172a; }
 
-        /* Ô nhập liệu tin nhắn */
+        /* Nút phát âm thanh trong tin nhắn bot */
+        .speak-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+        .speak-btn:hover { color: var(--primary); }
+
+        /* Khu vực hiển thị ảnh xem trước trước khi gửi */
+        .image-preview-bar {
+            max-width: 760px;
+            width: 100%;
+            margin: 0 auto;
+            display: none;
+            padding: 8px 16px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+            align-items: center;
+            gap: 12px;
+        }
+        .image-preview-bar img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Ô nhập liệu */
         .input-container {
-            padding: 20px;
+            padding: 16px 20px;
             background: white;
             border-top: 1px solid var(--border-color);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
         }
 
         .input-wrapper {
             max-width: 760px;
             width: 100%;
             display: flex;
+            align-items: center;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 6px 10px;
+            gap: 6px;
         }
 
         .input-wrapper input {
@@ -308,7 +345,24 @@
             font-family: inherit;
         }
 
-        .input-wrapper button {
+        .tool-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: #e2e8f0; color: var(--text-main); }
+        .tool-btn.recording { color: #ef4444; background: #fee2e2; animation: pulse 1.5s infinite; }
+
+        .send-btn {
             background-color: var(--primary);
             color: white;
             border: none;
@@ -322,8 +376,13 @@
             font-size: 16px;
             transition: background 0.2s;
         }
+        .send-btn:hover { background-color: var(--primary-hover); }
 
-        .input-wrapper button:hover { background-color: var(--primary-hover); }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -349,11 +408,11 @@
         </div>
 
         <div id="chatBox" class="chat-box">
-            <!-- Trang chủ chào mừng (sẽ tự ẩn khi bắt đầu nhắn tin) -->
+            <!-- Trang chủ chào mừng -->
             <div id="welcomeScreen" class="welcome-screen">
                 <div class="subtitle">YOUR PERSONAL STUDY PARTNER</div>
                 <h1>Học thông minh hơn,<br><span>bắt đầu từ đây.</span></h1>
-                <p class="welcome-desc">Chào bạn! Mình là Nam Smart. Hãy hỏi một câu hỏi, chọn môn học hoặc bắt đầu từ một gợi ý bên dưới nhé.</p>
+                <p class="welcome-desc">Chào bạn! Mình là Nam Smart. Hãy chụp ảnh đề bài, nói giọng nói hoặc chọn gợi ý bên dưới nhé.</p>
 
                 <div class="feature-grid">
                     <div class="feature-card" onclick="sendPrompt('Giải giúp tôi bài toán: Tìm x biết 2x - 1 = 0')">
@@ -383,16 +442,38 @@
             <div id="messageContainer" class="message-container" style="display: none;"></div>
         </div>
 
-        <!-- Ô nhập liệu -->
+        <!-- Thanh xem trước ảnh chụp/tải lên -->
+        <div id="imagePreviewBar" class="image-preview-bar">
+            <img id="previewImg" src="" alt="Preview">
+            <span id="previewName" style="font-size: 13px; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+            <button class="tool-btn" onclick="clearImage()" title="Xóa ảnh"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Ô nhập liệu có tích hợp Camera & Micro -->
         <div class="input-container">
             <div class="input-wrapper">
-                <input type="text" id="userInput" placeholder="Nhập câu hỏi học tập của bạn..." onkeypress="handleKeyPress(event)">
-                <button onclick="sendMessage()"><i class="fa-solid fa-arrow-up"></i></button>
+                <!-- Input file ẩn để chụp/chọn ảnh -->
+                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;" onchange="handleImageSelected(event)">
+                
+                <button class="tool-btn" onclick="document.getElementById('imageInput').click()" title="Chụp ảnh hoặc tải ảnh đề bài lên">
+                    <i class="fa-solid fa-camera"></i>
+                </button>
+                <button id="micBtn" class="tool-btn" onclick="toggleSpeechRecognition()" title="Trò chuyện bằng giọng nói">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                
+                <input type="text" id="userInput" placeholder="Nhập câu hỏi, chụp ảnh đề bài hoặc bấm micro nói..." onkeypress="handleKeyPress(event)">
+                
+                <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-arrow-up"></i></button>
             </div>
         </div>
     </div>
 
     <script>
+        let currentImageBase64 = null;
+        let recognition = null;
+        let isRecording = false;
+
         window.onload = function() {
             fetch('/api/history')
                 .then(res => res.json())
@@ -400,13 +481,14 @@
                     if (data.length > 0) {
                         showChatView();
                         data.forEach(item => {
-                            appendMessage(item.user, 'user', false);
+                            appendMessage(item.user, 'user', false, item.image);
                             appendMessage(item.bot, 'bot', false);
                             addHistorySidebar(item.user);
                         });
                         triggerMathJax();
                     }
                 });
+            setupSpeechRecognition();
         };
 
         function showChatView() {
@@ -420,82 +502,115 @@
             }
         }
 
-        function appendMessage(text, sender, scroll = true) {
+        // Xử lý chọn ảnh / chụp ảnh
+        function handleImageSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentImageBase64 = e.target.result;
+                document.getElementById('previewImg').src = currentImageBase64;
+                document.getElementById('previewName').textContent = file.name;
+                document.getElementById('imagePreviewBar').style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            currentImageBase64 = null;
+            document.getElementById('imageInput').value = '';
+            document.getElementById('imagePreviewBar').style.display = 'none';
+        }
+
+        // Nhận diện giọng nói (Speech-to-Text)
+        function setupSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return;
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'vi-VN';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = function(event) {
+                const speechText = event.results[0][0].transcript;
+                document.getElementById('userInput').value = speechText;
+                stopRecordingUI();
+            };
+
+            recognition.onerror = function() {
+                stopRecordingUI();
+            };
+
+            recognition.onend = function() {
+                stopRecordingUI();
+            };
+        }
+
+        function toggleSpeechRecognition() {
+            if (!recognition) {
+                alert("Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.");
+                return;
+            }
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                startRecordingUI();
+            }
+        }
+
+        function startRecordingUI() {
+            isRecording = true;
+            document.getElementById('micBtn').classList.add('recording');
+            document.getElementById('userInput').placeholder = "Đang lắng nghe bạn nói...";
+        }
+
+        function stopRecordingUI() {
+            isRecording = false;
+            document.getElementById('micBtn').classList.remove('recording');
+            document.getElementById('userInput').placeholder = "Nhập câu hỏi, chụp ảnh đề bài hoặc bấm micro nói...";
+        }
+
+        // Đọc văn bản bằng giọng nói (Text-to-Speech)
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Dừng âm thanh cũ nếu đang đọc
+                // Loại bỏ các thẻ HTML hoặc ký hiệu toán học rườm rà trước khi đọc
+                const cleanText = text.replace(/[*#`_\[\]]/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'vi-VN';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Trình duyệt không hỗ trợ phát âm thanh.");
+            }
+        }
+
+        function appendMessage(text, sender, scroll = true, imageUrl = null) {
             showChatView();
             const container = document.getElementById('messageContainer');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${sender}-message`;
             
+            let contentHtml = "";
+            if (imageUrl) {
+                contentHtml += `<img src="${imageUrl}" alt="Uploaded Image" style="max-width: 100%; max-height: 250px; border-radius: 8px; margin-bottom: 8px; display: block;">`;
+            }
+
             if (sender === 'bot') {
-                // Sử dụng marked để parse markdown thành HTML cho bot
-                msgDiv.innerHTML = marked.parse(text);
+                contentHtml += marked.parse(text);
+                // Thêm nút đọc âm thanh cho tin nhắn bot
+                const escapedText = text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                contentHtml += `<button class="speak-btn" onclick="speakText('${escapedText}')"><i class="fa-solid fa-volume-high"></i> Nghe đọc</button>`;
+                msgDiv.innerHTML = contentHtml;
             } else {
-                msgDiv.textContent = text;
+                if (text) {
+                    contentHtml += `<div>${text}</div>`;
+                }
+                msgDiv.innerHTML = contentHtml;
             }
 
-            container.appendChild(msgDiv);
-
-            // Kích hoạt render lại MathJax sau khi gắn tin nhắn vào DOM
-            triggerMathJax();
-
-            if (scroll) {
-                const chatBox = document.getElementById('chatBox');
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        }
-
-        function addHistorySidebar(text) {
-            const historyList = document.getElementById('historyList');
-            const li = document.createElement('li');
-            li.className = 'history-item';
-            li.textContent = text;
-            historyList.appendChild(li);
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('userInput');
-            const text = input.value.trim();
-            if (!text) return;
-
-            appendMessage(text, 'user');
-            input.value = '';
-
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text })
-            })
-            .then(res => res.json())
-            .then(data => {
-                const replyText = data.answer || data.error || "Có lỗi xảy ra.";
-                appendMessage(replyText, 'bot');
-                addHistorySidebar(text);
-            })
-            .catch(() => {
-                appendMessage("Lỗi kết nối máy chủ!", 'bot');
-            });
-        }
-
-        function sendPrompt(promptText) {
-            document.getElementById('userInput').value = promptText;
-            sendMessage();
-        }
-
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
-
-        function clearHistory() {
-            fetch('/api/clear', { method: 'POST' })
-                .then(() => {
-                    document.getElementById('messageContainer').innerHTML = '';
-                    document.getElementById('messageContainer').style.display = 'none';
-                    document.getElementById('welcomeScreen').style.display = 'block';
-                    document.getElementById('historyList').innerHTML = '';
-                });
-        }
-    </script>
-</body>
-</html>
+            container.
