@@ -1,193 +1,128 @@
-
 import os
-import uuid
-import sqlite3
+import json
+import urllib.request
+import urllib.error
 import logging
-from pathlib import Path
-from datetime import datetime, timezone
-
-from flask import Flask, jsonify, render_template, request
-from groq import Groq, APIStatusError, APIConnectionError
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
 logging.basicConfig(level=logging.INFO)
 
-DB = Path(__file__).resolve().parent / "nam_smart.db"
-SYSTEM_PROMPT = r"""
-Bạn là Nam Smart, trợ lý học tập bằng tiếng Việt.
-Giải thích rõ ràng, từng bước khi giải bài tập.
-Dùng Markdown để trình bày.
-Công thức toán trong dòng dùng \( ... \), riêng dòng dùng \[ ... \].
-Không dùng dấu $ để bao công thức toán.
-"""
+# Tệp lưu trữ lịch sử cuộc trò chuyện
+HISTORY_FILE = 'chat_history.json'
 
+SYSTEM_PROMPT = """Bạn là Nam Smart, trợ lý học tập và công nghệ thân thiện. 
+Trả lời ngắn gọn, chính xác bằng tiếng Việt."""
 
-def connect():
-    conn = sqlite3.connect(DB, timeout=30)
-    conn.row_factory = sqlite3.Row
-    return conn
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
-
-def init_db():
-    with connect() as c:
-        c.execute("""CREATE TABLE IF NOT EXISTS conversations(
-            id TEXT PRIMARY KEY, title TEXT, created_at TEXT, updated_at TEXT)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS messages(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id TEXT, role TEXT, content TEXT, image TEXT,
-            created_at TEXT,
-            FOREIGN KEY(conversation_id) REFERENCES conversations(id))""")
-
-
-def ai_answer(history):
-    key = os.getenv("GROQ_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("Thiếu GROQ_API_KEY trong Render.")
-
-    has_image = any(
-        isinstance(m.get("content"), list) for m in history
-    )
-    model = os.getenv(
-        "GROQ_VISION_MODEL" if has_image else "GROQ_TEXT_MODEL",
-        "qwen/qwen3.8-27b" if has_image else "openai/gpt-oss-120b"
-    )
-
+def save_history(history):
     try:
-        client = Groq(api_key=key, timeout=60, max_retries=1)
-        result = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}, *history],
-            temperature=0.7,
-            max_tokens=2000
-        )
-        return result.choices[0].message.content or "AI chưa có câu trả lời."
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
-    except APIStatusError as e:
-        detail = e.response.text
-        app.logger.error("Groq HTTP %s | model=%s | %s",
-                         e.status_code, model, detail)
-        raise RuntimeError(
-            f"Groq HTTP {e.status_code}, model {model}: {detail}"
-        ) from e
-    except APIConnectionError as e:
-        raise RuntimeError(f"Không kết nối được Groq: {e}") from e
-
-
-@app.route("/")
+@app.route('/')
 def home():
-    return render_template("index.html")
+    return render_template('index.html')
 
-
-@app.route("/api/conversations")
-def conversations():
-    with connect() as c:
-        rows = c.execute(
-            "SELECT * FROM conversations ORDER BY updated_at DESC"
-        ).fetchall()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route("/api/conversations/<cid>")
-def conversation(cid):
-    with connect() as c:
-        conv = c.execute(
-            "SELECT * FROM conversations WHERE id=?", (cid,)
-        ).fetchone()
-        if not conv:
-            return jsonify(error="Không tìm thấy hội thoại"), 404
-        rows = c.execute(
-            "SELECT role,content,image,created_at FROM messages "
-            "WHERE conversation_id=? ORDER BY id", (cid,)
-        ).fetchall()
-    return jsonify({**dict(conv), "messages": [dict(r) for r in rows]})
-
-
-@app.route("/api/conversations/<cid>", methods=["DELETE"])
-def delete_conversation(cid):
-    with connect() as c:
-        c.execute("DELETE FROM messages WHERE conversation_id=?", (cid,))
-        c.execute("DELETE FROM conversations WHERE id=?", (cid,))
-    return jsonify(ok=True)
-
-
-@app.route("/api/chat", methods=["POST"])
+@app.route('/api/chat', methods=['POST'])
 def chat():
-    body = request.get_json(silent=True) or {}
-    text = body.get("message", "")
-    image = body.get("image")
-    cid = body.get("conversation_id") or str(uuid.uuid4())
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return jsonify({
+            "error": "Chưa cấu hình GROQ_API_KEY trong Render Environment."
+        }), 503
 
-    if not isinstance(text, str) or not isinstance(cid, str):
-        return jsonify(error="Dữ liệu không hợp lệ"), 400
-    text = text.strip()
-    if not text and not image:
-        return jsonify(error="Hãy nhập câu hỏi hoặc gửi ảnh"), 400
-    if image and (
-        not isinstance(image, str) or
-        not image.startswith(("data:image/jpeg;base64,",
-                              "data:image/png;base64,",
-                              "data:image/webp;base64,"))
-    ):
-        return jsonify(error="Ảnh không hợp lệ"), 400
+    data = request.get_json(silent=True) or {}
+    user_message = data.get("message", "").strip()
 
-    now = datetime.now(timezone.utc).isoformat()
-    content = text or "Hãy phân tích ảnh này."
+    if not user_message:
+        return jsonify({"error": "Hãy nhập câu hỏi rồi gửi lại."}), 400
 
-    with connect() as c:
-        exists = c.execute(
-            "SELECT id FROM conversations WHERE id=?", (cid,)
-        ).fetchone()
-        if not exists:
-            c.execute(
-                "INSERT INTO conversations VALUES(?,?,?,?)",
-                (cid, content[:60], now, now)
-            )
-        rows = c.execute(
-            "SELECT role,content,image FROM messages "
-            "WHERE conversation_id=? ORDER BY id", (cid,)
-        ).fetchall()
+    # Chuẩn bị tin nhắn gửi tới Groq API
+    clean_messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_message}
+    ]
 
-        history = []
-        for r in rows:
-            if r["image"]:
-                history.append({"role": r["role"], "content": [
-                    {"type": "text", "text": r["content"]},
-                    {"type": "image_url", "image_url": {"url": r["image"]}}
-                ]})
-            else:
-                history.append({"role": r["role"], "content": r["content"]})
+    payload = json.dumps({
+        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "messages": clean_messages,
+        "temperature": 0.5,
+        "max_tokens": 1200
+    }).encode("utf-8")
 
-        current = [{"type": "text", "text": content},
-                   {"type": "image_url", "image_url": {"url": image}}] if image else content
-        history.append({"role": "user", "content": current})
-        c.execute(
-            "INSERT INTO messages(conversation_id,role,content,image,created_at) "
-            "VALUES(?,?,?,?,?)", (cid, "user", content, image, now)
-        )
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "NamSmart/1.0"
+        },
+        method="POST"
+    )
 
     try:
-        answer = ai_answer(history)
-    except RuntimeError as e:
-        return jsonify(error=str(e), conversation_id=cid), 502
+        with urllib.request.urlopen(req, timeout=45) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            answer = result["choices"][0]["message"]["content"].strip()
 
-    with connect() as c:
-        c.execute(
-            "INSERT INTO messages(conversation_id,role,content,created_at) "
-            "VALUES(?,?,?,?)", (cid, "assistant", answer, now)
-        )
-        c.execute(
-            "UPDATE conversations SET updated_at=? WHERE id=?", (now, cid)
-        )
-    return jsonify(answer=answer, conversation_id=cid)
+        # Lưu vào lịch sử
+        history = load_history()
+        history.append({"user": user_message, "bot": answer})
+        save_history(history)
 
+        return jsonify({"answer": answer})
 
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify(error="Ảnh hoặc dữ liệu vượt quá giới hạn tải lên"), 413
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode("utf-8", errors="replace")[:1000]
+        except Exception:
+            detail = ""
 
+        app.logger.error("Groq HTTP error: status=%s, detail=%s", e.code, detail)
 
-init_db()
+        if e.code == 401:
+            message = "API key bị từ chối. Hãy kiểm tra GROQ_API_KEY trên Render."
+        elif e.code == 429:
+            message = "Groq đang giới hạn yêu cầu hoặc đã hết hạn mức. Hãy thử lại sau."
+        else:
+            message = f"Groq trả lỗi HTTP {e.code}. Hãy kiểm tra Render Logs."
+
+        return jsonify({"error": message}), 502
+
+    except Exception:
+        app.logger.exception("Lỗi khi gọi Groq API")
+        return jsonify({
+            "error": "Không kết nối được dịch vụ AI. Hãy kiểm tra Render Logs."
+        }), 502
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    return jsonify(load_history())
+
+@app.route('/api/clear', methods=['POST'])
+def clear_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            os.remove(HISTORY_FILE)
+        except Exception:
+            pass
+    return jsonify({"status": "success"})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+        debug=False
+    )
