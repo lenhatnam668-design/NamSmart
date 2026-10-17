@@ -1,28 +1,32 @@
 
 import os
 import json
-import sqlite3
-import base64
 import uuid
+import base64
+import sqlite3
+import logging
 
 from pathlib import Path
 from datetime import datetime, timezone
-
-from flask import Flask, jsonify, render_template, request
-from werkzeug.exceptions import RequestEntityTooLarge
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
+from flask import Flask, jsonify, render_template, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
-# =========================
-# CẤU HÌNH ỨNG DỤNG
-# =========================
+
+# ==================================================
+# 1. CẤU HÌNH
+# ==================================================
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "nam_smart.db"
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
+
+logging.basicConfig(level=logging.INFO)
+app.logger.setLevel(logging.INFO)
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -36,39 +40,30 @@ VISION_MODEL = os.getenv(
     "qwen/qwen3.8-27b"
 )
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = r"""
 Bạn là Nam Smart, trợ lý AI học tập thân thiện dành cho học sinh Việt Nam.
 
-NGUYÊN TẮC:
-- Trả lời bằng tiếng Việt, rõ ràng, chính xác và dễ hiểu.
-- Giải thích từng bước đối với bài tập Toán, Lý, Hóa, Tin học và các môn khác.
-- Nếu người dùng yêu cầu đáp án ngắn, hãy trả lời ngắn gọn.
-- Không bịa dữ kiện hoặc tự khẳng định điều chưa chắc chắn.
-- Với câu hỏi trắc nghiệm, giải thích ngắn gọn vì sao chọn đáp án.
-- Khi nhận ảnh đề bài, đọc nội dung ảnh rồi giải quyết yêu cầu.
-- Nếu ảnh mờ hoặc thiếu dữ kiện, hãy hỏi lại người dùng.
-- Có thể dùng Markdown để trình bày tiêu đề, danh sách và bảng.
-
-QUY TẮC CÔNG THỨC TOÁN:
-- Công thức trong dòng dùng \\( ... \\).
-- Công thức riêng dòng dùng \\[ ... \\].
-- Ví dụ: \\(a^2+b^2=c^2\\).
-- Ví dụ công thức riêng dòng:
-  \\[
-  x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
-  \\]
-- Không dùng dấu $ để bao quanh công thức.
-- Viết công thức LaTeX đúng cú pháp.
+- Trả lời bằng tiếng Việt, dễ hiểu, chính xác.
+- Giải bài tập theo từng bước khi cần thiết.
+- Dùng Markdown để trình bày tiêu đề, danh sách và bảng.
+- Khi nhận ảnh, đọc đề bài trong ảnh rồi giải thích.
+- Nếu ảnh mờ hoặc thiếu dữ kiện, hãy hỏi lại.
+- Không bịa thông tin khi không chắc chắn.
+- Công thức toán trong dòng dùng \( ... \).
+- Công thức riêng dòng dùng \[ ... \].
+- Ví dụ: \(a^2+b^2=c^2\).
+- Không dùng dấu $ để bao công thức toán.
 """
 
 
-# =========================
-# DATABASE
-# =========================
+# ==================================================
+# 2. DATABASE
+# ==================================================
 
 def db():
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -107,35 +102,32 @@ def init_db():
         """)
 
 
-# =========================
-# KIỂM TRA ẢNH
-# =========================
+# ==================================================
+# 3. KIỂM TRA ẢNH
+# ==================================================
 
 def validate_image(image):
-    if not image:
+    if image is None or image == "":
         return None
 
     if not isinstance(image, str):
         raise ValueError("Dữ liệu ảnh không hợp lệ.")
 
-    allowed_types = {
-        "data:image/jpeg;base64,": "image/jpeg",
-        "data:image/png;base64,": "image/png",
-        "data:image/webp;base64,": "image/webp",
-        "data:image/gif;base64,": "image/gif",
-    }
+    prefixes = (
+        "data:image/jpeg;base64,",
+        "data:image/png;base64,",
+        "data:image/webp;base64,",
+        "data:image/gif;base64,",
+    )
 
     prefix = next(
-        (
-            item for item in allowed_types
-            if image.startswith(item)
-        ),
+        (p for p in prefixes if image.startswith(p)),
         None
     )
 
     if prefix is None:
         raise ValueError(
-            "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc GIF."
+            "Ảnh phải là JPEG, PNG, WEBP hoặc GIF."
         )
 
     try:
@@ -152,16 +144,17 @@ def validate_image(image):
     return image
 
 
-# =========================
-# GỌI GROQ API
-# =========================
+# ==================================================
+# 4. GỌI GROQ API
+# ==================================================
 
 def ai_answer(history):
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
 
     if not api_key:
         raise RuntimeError(
-            "Chưa cấu hình GROQ_API_KEY trên Render."
+            "Thiếu GROQ_API_KEY. Hãy thêm API key trong "
+            "Render > Environment."
         )
 
     has_image = any(
@@ -179,26 +172,27 @@ def ai_answer(history):
     payload = {
         "model": model,
         "messages": [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
+            {"role": "system", "content": SYSTEM_PROMPT},
             *history
         ],
         "temperature": 0.7,
         "max_tokens": 2000
     }
 
-    data = json.dumps(payload).encode("utf-8")
-
     req = Request(
         GROQ_URL,
-        data=data,
+        data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         },
         method="POST"
+    )
+
+    app.logger.info(
+        "Gửi yêu cầu Groq: model=%s, image=%s",
+        model,
+        has_image
     )
 
     try:
@@ -211,7 +205,7 @@ def ai_answer(history):
 
         if not choices:
             raise RuntimeError(
-                "Groq không trả về câu trả lời."
+                "Groq phản hồi nhưng không có câu trả lời."
             )
 
         answer = choices[0].get(
@@ -220,44 +214,67 @@ def ai_answer(history):
 
         if not isinstance(answer, str) or not answer.strip():
             raise RuntimeError(
-                "Nội dung phản hồi từ Groq đang trống."
+                "Groq trả về nội dung rỗng."
             )
 
         return answer.strip()
 
     except HTTPError as exc:
-        body = exc.read().decode(
+        # Giữ lại thông báo lỗi gốc từ Groq.
+        raw_error = exc.read().decode(
             "utf-8", errors="replace"
         )
 
         try:
-            error_data = json.loads(body)
-            detail = error_data.get(
-                "error", {}
-            ).get("message", body)
+            parsed = json.loads(raw_error)
+            error_obj = parsed.get("error", {})
+            detail = error_obj.get("message", raw_error)
+            error_code = error_obj.get("code", "")
+            error_type = error_obj.get("type", "")
         except (json.JSONDecodeError, AttributeError):
-            detail = body
+            detail = raw_error
+            error_code = ""
+            error_type = ""
+
+        app.logger.error(
+            "Groq HTTP %s | model=%s | code=%s | type=%s | detail=%s",
+            exc.code,
+            model,
+            error_code,
+            error_type,
+            detail
+        )
 
         if exc.code == 401:
-            message = "API key Groq không hợp lệ."
+            message = (
+                "Groq HTTP 401: API key không hợp lệ hoặc đã bị thu hồi. "
+                "Kiểm tra GROQ_API_KEY trên Render."
+            )
         elif exc.code == 403:
-            message = "API key không có quyền truy cập."
+            message = (
+                f"Groq HTTP 403 khi dùng model '{model}'. "
+                f"Thông báo gốc: {detail}"
+            )
         elif exc.code == 404:
             message = (
-                f"Không tìm thấy model '{model}' hoặc endpoint. "
-                f"Chi tiết: {detail}"
+                f"Groq HTTP 404 với model '{model}'. "
+                f"Thông báo gốc: {detail}"
             )
         elif exc.code == 429:
             message = (
-                "Groq đã giới hạn yêu cầu hoặc hết hạn mức. "
-                f"Chi tiết: {detail}"
+                "Groq HTTP 429: đã chạm giới hạn yêu cầu hoặc hạn mức. "
+                f"Thông báo gốc: {detail}"
             )
         else:
-            message = f"Groq HTTP {exc.code}: {detail}"
+            message = (
+                f"Groq HTTP {exc.code}, model '{model}'. "
+                f"Thông báo gốc: {detail}"
+            )
 
         raise RuntimeError(message) from exc
 
     except URLError as exc:
+        app.logger.exception("Không kết nối được Groq")
         raise RuntimeError(
             f"Không kết nối được Groq API: {exc.reason}"
         ) from exc
@@ -268,18 +285,18 @@ def ai_answer(history):
         ) from exc
 
 
-# =========================
-# TRANG CHỦ
-# =========================
+# ==================================================
+# 5. TRANG CHỦ
+# ==================================================
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-# =========================
-# DANH SÁCH CUỘC TRÒ CHUYỆN
-# =========================
+# ==================================================
+# 6. DANH SÁCH CUỘC TRÒ CHUYỆN
+# ==================================================
 
 @app.route("/api/conversations", methods=["GET"])
 def get_conversations():
@@ -293,9 +310,9 @@ def get_conversations():
     return jsonify([dict(row) for row in rows])
 
 
-# =========================
-# CHI TIẾT CUỘC TRÒ CHUYỆN
-# =========================
+# ==================================================
+# 7. LẤY MỘT CUỘC TRÒ CHUYỆN
+# ==================================================
 
 @app.route("/api/conversations/<conversation_id>", methods=["GET"])
 def get_conversation(conversation_id):
@@ -323,9 +340,9 @@ def get_conversation(conversation_id):
     })
 
 
-# =========================
-# XÓA CUỘC TRÒ CHUYỆN
-# =========================
+# ==================================================
+# 8. XÓA CUỘC TRÒ CHUYỆN
+# ==================================================
 
 @app.route(
     "/api/conversations/<conversation_id>",
@@ -333,8 +350,6 @@ def get_conversation(conversation_id):
 )
 def delete_conversation(conversation_id):
     with db() as conn:
-        conn.execute("PRAGMA foreign_keys = ON")
-
         existing = conn.execute(
             "SELECT id FROM conversations WHERE id = ?",
             (conversation_id,)
@@ -358,9 +373,9 @@ def delete_conversation(conversation_id):
     return jsonify({"ok": True})
 
 
-# =========================
-# CHAT
-# =========================
+# ==================================================
+# 9. GỬI CÂU HỎI
+# ==================================================
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -406,6 +421,7 @@ def chat():
         }), 400
 
     timestamp = now()
+    user_text = message or "Hãy phân tích ảnh này."
 
     with db() as conn:
         conversation = conn.execute(
@@ -414,7 +430,11 @@ def chat():
         ).fetchone()
 
         if conversation is None:
-            title = message[:60] if message else "Câu hỏi bằng hình ảnh"
+            title = (
+                message[:60]
+                if message
+                else "Câu hỏi bằng hình ảnh"
+            )
 
             conn.execute("""
                 INSERT INTO conversations
@@ -427,7 +447,6 @@ def chat():
                 timestamp
             ))
 
-        # Lấy lịch sử trước khi lưu tin nhắn hiện tại
         rows = conn.execute("""
             SELECT role, content, image
             FROM messages
@@ -444,7 +463,7 @@ def chat():
                     "content": [
                         {
                             "type": "text",
-                            "text": row["content"] or "Hãy xem ảnh."
+                            "text": row["content"]
                         },
                         {
                             "type": "image_url",
@@ -460,12 +479,11 @@ def chat():
                     "content": row["content"]
                 })
 
-        # Thêm câu hỏi mới vào lịch sử gửi Groq
         if image:
             current_content = [
                 {
                     "type": "text",
-                    "text": message or "Hãy phân tích và giải thích nội dung ảnh này."
+                    "text": user_text
                 },
                 {
                     "type": "image_url",
@@ -475,14 +493,13 @@ def chat():
                 }
             ]
         else:
-            current_content = message
+            current_content = user_text
 
         history.append({
             "role": "user",
             "content": current_content
         })
 
-        # Lưu tin nhắn người dùng
         conn.execute("""
             INSERT INTO messages
             (conversation_id, role, content, image, created_at)
@@ -490,15 +507,22 @@ def chat():
         """, (
             conversation_id,
             "user",
-            message or "Câu hỏi bằng hình ảnh",
+            user_text,
             image,
             timestamp
         ))
+
+        conn.execute("""
+            UPDATE conversations
+            SET updated_at = ?
+            WHERE id = ?
+        """, (timestamp, conversation_id))
 
     try:
         answer = ai_answer(history)
 
     except RuntimeError as exc:
+        # Trả về chi tiết thật để giao diện có thể hiển thị.
         return jsonify({
             "error": str(exc),
             "conversation_id": conversation_id
@@ -507,7 +531,8 @@ def chat():
     except Exception:
         app.logger.exception("Lỗi xử lý câu hỏi")
         return jsonify({
-            "error": "Đã xảy ra lỗi khi xử lý câu hỏi."
+            "error": "Đã xảy ra lỗi nội bộ khi xử lý câu hỏi.",
+            "conversation_id": conversation_id
         }), 500
 
     with db() as conn:
@@ -535,29 +560,35 @@ def chat():
     })
 
 
-# =========================
-# XỬ LÝ LỖI FILE QUÁ LỚN
-# =========================
+# ==================================================
+# 10. XỬ LÝ LỖI
+# ==================================================
 
 @app.errorhandler(RequestEntityTooLarge)
 def handle_file_too_large(error):
     return jsonify({
-        "error": "Dữ liệu gửi lên quá lớn. Hãy dùng ảnh nhỏ hơn 7 MB."
+        "error": "Dữ liệu quá lớn. Hãy thử ảnh nhỏ hơn 7 MB."
     }), 413
 
 
-# =========================
-# KHỞI ĐỘNG
-# =========================
+@app.errorhandler(500)
+def handle_internal_error(error):
+    app.logger.exception("Lỗi máy chủ")
+    return jsonify({
+        "error": "Máy chủ gặp lỗi nội bộ."
+    }), 500
+
+
+# ==================================================
+# 11. KHỞI ĐỘNG
+# ==================================================
 
 init_db()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-
+    port = int(os.environ.get("PORT", "5000"))
     app.run(
         host="0.0.0.0",
         port=port,
-        debug=debug
+        debug=False
     )
