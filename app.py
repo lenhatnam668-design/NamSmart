@@ -1,128 +1,76 @@
 import os
-import json
-import urllib.request
-import urllib.error
 import logging
 from flask import Flask, render_template, request, jsonify
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Tải biến môi trường từ tệp .env (dùng khi chạy local)
+load_dotenv()
+
+# Cấu hình logging để theo dõi hoạt động và debug trên server (Render/Heroku/...)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 
-# Tệp lưu trữ lịch sử cuộc trò chuyện
-HISTORY_FILE = 'chat_history.json'
+# Kiểm tra và khởi tạo OpenAI client
+api_key = os.environ.get("OPENAI_API_KEY")
+if not api_key:
+    logger.warning("CẢNH BÁO: Chưa tìm thấy OPENAI_API_KEY trong biến môi trường!")
 
-SYSTEM_PROMPT = """Bạn là Nam Smart, trợ lý học tập và công nghệ thân thiện. 
-Trả lời ngắn gọn, chính xác bằng tiếng Việt."""
-
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def save_history(history):
-    try:
-        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
+client = OpenAI(api_key=api_key)
 
 @app.route('/')
-def home():
+def index():
+    """Route hiển thị giao diện chính của trang web."""
     return render_template('index.html')
 
 @app.route('/api/chat', methods=['POST'])
-def chat():
-    api_key = os.getenv("GROQ_API_KEY", "").strip()
-    if not api_key:
-        return jsonify({
-            "error": "Chưa cấu hình GROQ_API_KEY trong Render Environment."
-        }), 503
-
-    data = request.get_json(silent=True) or {}
-    user_message = data.get("message", "").strip()
-
-    if not user_message:
-        return jsonify({"error": "Hãy nhập câu hỏi rồi gửi lại."}), 400
-
-    # Chuẩn bị tin nhắn gửi tới Groq API
-    clean_messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_message}
-    ]
-
-    payload = json.dumps({
-        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-        "messages": clean_messages,
-        "temperature": 0.5,
-        "max_tokens": 1200
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.groq.com/openai/v1/chat/completions",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "NamSmart/1.0"
-        },
-        method="POST"
-    )
-
+def api_chat():
+    """API endpoint nhận tin nhắn và hình ảnh từ giao diện, gọi OpenAI API và trả về kết quả."""
     try:
-        with urllib.request.urlopen(req, timeout=45) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            answer = result["choices"][0]["message"]["content"].strip()
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Dữ liệu yêu cầu không hợp lệ (không phải JSON)."}), 400
 
-        # Lưu vào lịch sử
-        history = load_history()
-        history.append({"user": user_message, "bot": answer})
-        save_history(history)
+        messages = data.get('messages', [])
+        if not messages:
+            return jsonify({"error": "Danh sách tin nhắn trống."}), 400
 
-        return jsonify({"answer": answer})
+        logger.info(f"Nhận yêu cầu xử lý chat, số lượng messages: {len(messages)}")
 
-    except urllib.error.HTTPError as e:
-        try:
-            detail = e.read().decode("utf-8", errors="replace")[:1000]
-        except Exception:
-            detail = ""
+        # Lấy tên mô hình từ biến môi trường hoặc mặc định là gpt-4o-mini
+        model_name = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-        app.logger.error("Groq HTTP error: status=%s, detail=%s", e.code, detail)
+        # Gọi OpenAI API (hỗ trợ cả văn bản và hình ảnh base64 gửi lên)
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2500
+        )
+        
+        reply = response.choices[0].message.content
+        logger.info("Đã nhận phản hồi thành công từ OpenAI API.")
+        
+        return jsonify({"reply": reply})
 
-        if e.code == 401:
-            message = "API key bị từ chối. Hãy kiểm tra GROQ_API_KEY trên Render."
-        elif e.code == 429:
-            message = "Groq đang giới hạn yêu cầu hoặc đã hết hạn mức. Hãy thử lại sau."
-        else:
-            message = f"Groq trả lỗi HTTP {e.code}. Hãy kiểm tra Render Logs."
+    except Exception as e:
+        logger.error(f"Lỗi xử lý tại /api/chat: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Lỗi hệ thống từ phía Server: {str(e)}"}), 500
 
-        return jsonify({"error": message}), 502
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Không tìm thấy đường dẫn API yêu cầu."}), 404
 
-    except Exception:
-        app.logger.exception("Lỗi khi gọi Groq API")
-        return jsonify({
-            "error": "Không kết nối được dịch vụ AI. Hãy kiểm tra Render Logs."
-        }), 502
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({"error": "Đã xảy ra lỗi máy chủ nội bộ."}), 500
 
-@app.route('/api/history', methods=['GET'])
-def get_history():
-    return jsonify(load_history())
-
-@app.route('/api/clear', methods=['POST'])
-def clear_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            os.remove(HISTORY_FILE)
-        except Exception:
-            pass
-    return jsonify({"status": "success"})
-
-if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", "5000")),
-        debug=False
-    )
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    logger.info(f"Đang khởi động máy chủ Flask tại cổng {port}...")
+    app.run(host='0.0.0.0', port=port, debug=False)
