@@ -93,13 +93,17 @@ SYSTEM_PROMPT = """Bạn là Nam Smart, trợ lý học tập thân thiện bằ
 
 
 def ai_answer(history):
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("Chưa cấu hình OPENAI_API_KEY trên máy chủ. Hãy thêm khóa API để bật AI và nhận diện ảnh.")
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    
+    if not groq_key and not openai_key:
+        raise RuntimeError("Chưa cấu hình GROQ_API_KEY hoặc OPENAI_API_KEY trên máy chủ. Hãy thêm khóa API.")
+    
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("Thiếu thư viện openai. Hãy chạy: pip install -r requirements.txt") from exc
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for item in history[-18:]:
         if item["role"] == "user" and item["image"]:
@@ -110,8 +114,16 @@ def ai_answer(history):
         else:
             content = item["content"]
         messages.append({"role": item["role"], "content": content})
-    client = OpenAI(api_key=key, timeout=45.0)
-    response = client.chat.completions.create(model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"), messages=messages)
+
+    # Tự động chọn cấu hình phù hợp với Key đang có trên Render
+    if groq_key:
+        client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1", timeout=45.0)
+        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    else:
+        client = OpenAI(api_key=openai_key, timeout=45.0)
+        model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
+    response = client.chat.completions.create(model=model_name, messages=messages)
     return response.choices[0].message.content or "Mình chưa tạo được câu trả lời."
 
 
