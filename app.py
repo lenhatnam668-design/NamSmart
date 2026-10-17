@@ -100,12 +100,9 @@ def ai_answer(history):
     if not groq_key:
         raise RuntimeError("Chưa cấu hình GROQ_API_KEY trên máy chủ Render. Hãy thêm khóa API.")
 
-    has_image = any(item.get("image") for item in history)
-
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for item in history[-18:]:
         if item["role"] == "user" and item.get("image"):
-            # Nếu Groq từ chối ảnh, ta chuyển nội dung ảnh thành thông báo chữ để app vẫn trả lời được mà không lỗi crash
             content = [
                 {"type": "text", "text": item["content"] or "Hãy giải thích câu hỏi học tập này."},
                 {"type": "image_url", "image_url": {"url": item["image"]}},
@@ -114,8 +111,7 @@ def ai_answer(history):
             content = item["content"]
         messages.append({"role": item["role"], "content": content})
 
-    # Chọn model: Nếu có ảnh dùng model vision, nếu không dùng model text siêu nhanh
-    model_name = os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview") if has_image else os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     
     url = "https://api.groq.com/openai/v1/chat/completions"
     payload = {
@@ -126,12 +122,15 @@ def ai_answer(history):
     }
     
     req_data = json.dumps(payload).encode("utf-8")
+    
+    # Bổ sung User-Agent giả lập trình duyệt để vượt qua bộ lọc Cloudflare (Lỗi 1010)
     req = urllib.request.Request(
         url,
         data=req_data,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {groq_key}"
+            "Authorization": f"Bearer {groq_key}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
         method="POST"
     )
@@ -142,12 +141,9 @@ def ai_answer(history):
             return res_json["choices"][0]["message"]["content"] or "Mình chưa tạo được câu trả lời."
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="ignore")
-        # Nếu lỗi do model vision không khả dụng trên tài khoản, thông báo rõ ràng cho người dùng
-        if has_image:
-            raise RuntimeError("Tài khoản Groq hiện tại chưa hỗ trợ model đọc ảnh này. Bạn hãy gõ câu hỏi bằng văn bản nhé!")
-        raise RuntimeError(f"Groq API từ chối: {error_body}")
+        raise RuntimeError(f"Groq API từ chối (Mã {e.code}): {error_body}")
     except Exception as exc:
-        raise RuntimeError(f"Lỗi kết nối: {str(exc)}")
+        raise RuntimeError(f"Lỗi kết nối Groq API: {str(exc)}")
 
 
 @app.post("/api/chat")
