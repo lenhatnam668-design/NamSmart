@@ -100,18 +100,23 @@ def ai_answer(history):
     if not groq_key:
         raise RuntimeError("Chưa cấu hình GROQ_API_KEY trên máy chủ Render. Hãy thêm khóa API.")
 
+    # Kiểm tra xem trong lịch sử có tin nhắn nào chứa ảnh không
+    has_image = any(item.get("image") for item in history[-18:])
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for item in history[-18:]:
-        if item["role"] == "user" and item.get("image"):
+        if has_image and item["role"] == "user" and item.get("image"):
             content = [
                 {"type": "text", "text": item["content"] or "Hãy giải thích câu hỏi học tập này."},
                 {"type": "image_url", "image_url": {"url": item["image"]}},
             ]
         else:
-            content = item["content"]
+            # Đảm bảo với model text, content luôn là string tuyệt đối
+            content = item["content"] or ""
         messages.append({"role": item["role"], "content": content})
 
-    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    # Tự động chọn model phù hợp: có ảnh dùng Vision, không có ảnh dùng Text siêu nhanh
+    model_name = os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview") if has_image else os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     
     url = "https://api.groq.com/openai/v1/chat/completions"
     payload = {
@@ -122,8 +127,6 @@ def ai_answer(history):
     }
     
     req_data = json.dumps(payload).encode("utf-8")
-    
-    # Bổ sung User-Agent giả lập trình duyệt để vượt qua bộ lọc Cloudflare (Lỗi 1010)
     req = urllib.request.Request(
         url,
         data=req_data,
