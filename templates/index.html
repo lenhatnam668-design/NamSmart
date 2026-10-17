@@ -4,167 +4,381 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nam Smart - Trợ lý thông minh</title>
+    <!-- FontAwesome & Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Cấu hình thư viện MathJax hiển thị công thức toán học đẹp -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['[', ']'], ['$$', '$$']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <style>
         :root {
-            --primary-color: #0056b3;
-            --secondary-color: #007bff;
-            --bg-color: #f4f7f6;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-body: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
         }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background-color: var(--bg-color);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             display: flex;
             height: 100vh;
+            overflow: hidden;
         }
+
+        /* Sidebar bên trái */
         .sidebar {
             width: 280px;
-            background: #ffffff;
-            border-right: 1px solid #ddd;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             padding: 20px;
         }
+
         .logo-container {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             margin-bottom: 20px;
         }
+
         .logo-container img {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             object-fit: cover;
         }
+
         .logo-container h2 {
             font-size: 18px;
-            color: var(--primary-color);
-            margin: 0;
+            font-weight: 700;
+            color: var(--text-main);
         }
+
         .new-chat-btn {
-            background-color: var(--secondary-color);
+            background-color: var(--primary);
             color: white;
             border: none;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            border-radius: 10px;
             cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            transition: background 0.2s;
         }
-        .new-chat-btn:hover { background-color: #004085; }
-        
+
+        .new-chat-btn:hover { background-color: var(--primary-hover); }
+
+        .history-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
         .history-list {
             flex: 1;
             overflow-y: auto;
             list-style: none;
-            padding: 0;
-            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
+
         .history-item {
             padding: 10px;
-            margin-bottom: 8px;
-            background: #f8f9fa;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
+            color: #334155;
+            background: #f1f5f9;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            transition: background 0.2s;
         }
-        .history-item:hover { background: #e2e6ea; }
 
+        .history-item:hover { background: #e2e8f0; }
+
+        /* Khung chat chính */
         .main-chat {
             flex: 1;
             display: flex;
             flex-direction: column;
             height: 100%;
         }
+
         .chat-header {
-            padding: 15px 20px;
+            padding: 16px 24px;
             background: white;
-            border-bottom: 1px solid #ddd;
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
         }
+
+        .demo-badge {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
         .chat-box {
             flex: 1;
-            padding: 20px;
+            padding: 24px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            align-items: center;
         }
+
+        /* Trang chủ chào mừng (Welcome Dashboard) */
+        .welcome-screen {
+            max-width: 720px;
+            width: 100%;
+            margin: auto;
+            text-align: left;
+        }
+
+        .subtitle {
+            color: #4f46e5;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .welcome-screen h1 {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 12px;
+        }
+
+        .welcome-screen h1 span { color: #4f46e5; }
+
+        .welcome-desc {
+            color: var(--text-muted);
+            font-size: 15px;
+            margin-bottom: 30px;
+        }
+
+        /* 4 Thẻ gợi ý môn học bắt mắt */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .feature-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #1e293b;
+            margin-bottom: 6px;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Khung tin nhắn trò chuyện */
+        .message-container {
+            width: 100%;
+            max-width: 760px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
         .message {
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 10px;
-            line-height: 1.5;
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.6;
             word-wrap: break-word;
         }
+
         .user-message {
-            background: var(--secondary-color);
+            background: var(--primary);
             color: white;
             align-self: flex-end;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 4px;
         }
+
         .bot-message {
             background: white;
-            color: #333;
+            color: var(--text-main);
             align-self: flex-start;
-            border-bottom-left-radius: 2px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .chat-input-area {
+
+        /* Ô nhập liệu tin nhắn */
+        .input-container {
             padding: 20px;
             background: white;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid var(--border-color);
             display: flex;
-            gap: 10px;
+            justify-content: center;
         }
-        .chat-input-area input {
+
+        .input-wrapper {
+            max-width: 760px;
+            width: 100%;
+            display: flex;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 6px 10px;
+        }
+
+        .input-wrapper input {
             flex: 1;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            border: none;
+            background: transparent;
             outline: none;
+            padding: 10px 14px;
             font-size: 15px;
+            font-family: inherit;
         }
-        .chat-input-area button {
-            padding: 0 20px;
-            background-color: var(--primary-color);
+
+        .input-wrapper button {
+            background-color: var(--primary);
             color: white;
             border: none;
-            border-radius: 5px;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
             cursor: pointer;
-            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background 0.2s;
         }
-        .chat-input-area button:hover { background-color: #004085; }
+
+        .input-wrapper button:hover { background-color: var(--primary-hover); }
     </style>
 </head>
 <body>
 
+    <!-- Sidebar bên trái -->
     <div class="sidebar">
         <div class="logo-container">
             <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Nam Smart Logo">
             <h2>Nam Smart</h2>
         </div>
-        <button class="new-chat-btn" onclick="clearHistory()">+ Cuộc trò chuyện mới</button>
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: bold;">Lịch sử trò chuyện:</div>
-        <ul id="historyList" class="history-list">
-        </ul>
+        <button class="new-chat-btn" onclick="clearHistory()">
+            <i class="fa-solid fa-plus"></i> Cuộc trò chuyện mới
+        </button>
+        <div class="history-title">Lịch sử trò chuyện</div>
+        <ul id="historyList" class="history-list"></ul>
     </div>
 
+    <!-- Khung chính -->
     <div class="main-chat">
-        <div class="chat-header">Trang chủ Trợ lý Nam Smart</div>
-        <div id="chatBox" class="chat-box">
-            <div class="message bot-message">Xin chào! Tôi là trợ lý Nam Smart. Tôi có thể giúp gì cho bạn hôm nay?</div>
+        <div class="chat-header">
+            <span>Không gian học tập / <b>Tất cả môn học</b></span>
+            <span class="demo-badge">● Bản demo</span>
         </div>
-        <div class="chat-input-area">
-            <input type="text" id="userInput" placeholder="Nhập tin nhắn của bạn..." onkeypress="handleKeyPress(event)">
-            <button onclick="sendMessage()">Gửi</button>
+
+        <div id="chatBox" class="chat-box">
+            <!-- Trang chủ chào mừng (sẽ tự ẩn khi bắt đầu nhắn tin) -->
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="subtitle">YOUR PERSONAL STUDY PARTNER</div>
+                <h1>Học thông minh hơn,<br><span>bắt đầu từ đây.</span></h1>
+                <p class="welcome-desc">Chào bạn! Mình là Nam Smart. Hãy hỏi một câu hỏi, chọn môn học hoặc bắt đầu từ một gợi ý bên dưới nhé.</p>
+
+                <div class="feature-grid">
+                    <div class="feature-card" onclick="sendPrompt('Giải giúp tôi bài toán: Tìm x biết 2x - 1 = 0')">
+                        <div class="card-icon">🧮</div>
+                        <div class="card-title">Giải bài Toán</div>
+                        <div class="card-desc">Giải từng bước, dễ hiểu và có ví dụ cụ thể.</div>
+                    </div>
+                    <div class="feature-card" onclick="sendPrompt('Hãy hướng dẫn tôi lập dàn ý cho bài văn phân tích tác phẩm văn học')">
+                        <div class="card-icon">✍️</div>
+                        <div class="card-title">Học Ngữ văn</div>
+                        <div class="card-desc">Lập ý, phân tích và cải thiện cách viết văn.</div>
+                    </div>
+                    <div class="feature-card" onclick="sendPrompt('Luyện tập đối thoại Tiếng Anh chủ đề giao tiếp hàng ngày')">
+                        <div class="card-icon">🌍</div>
+                        <div class="card-title">Luyện Tiếng Anh</div>
+                        <div class="card-desc">Luyện nói, từ vựng và ngữ pháp hiệu quả.</div>
+                    </div>
+                    <div class="feature-card" onclick="sendPrompt('Tạo cho tôi 3 câu hỏi trắc nghiệm ôn tập kiến thức môn Sinh học')">
+                        <div class="card-icon">🎯</div>
+                        <div class="card-title">Kiểm tra kiến thức</div>
+                        <div class="card-desc">Tạo câu hỏi để tự kiểm tra bài học.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Khung danh sách tin nhắn -->
+            <div id="messageContainer" class="message-container" style="display: none;"></div>
+        </div>
+
+        <!-- Ô nhập liệu -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <input type="text" id="userInput" placeholder="Nhập câu hỏi học tập của bạn..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()"><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
         </div>
     </div>
 
@@ -173,31 +387,58 @@
             fetch('/api/history')
                 .then(res => res.json())
                 .then(data => {
-                    const historyList = document.getElementById('historyList');
-                    const chatBox = document.getElementById('chatBox');
-                    
-                    data.forEach(item => {
-                        chatBox.innerHTML += `<div class="message user-message">${escapeHtml(item.user)}</div>`;
-                        chatBox.innerHTML += `<div class="message bot-message">${escapeHtml(item.bot)}</div>`;
-                        
-                        const li = document.createElement('li');
-                        li.className = 'history-item';
-                        li.textContent = item.user;
-                        historyList.appendChild(li);
-                    });
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                    if (data.length > 0) {
+                        showChatView();
+                        data.forEach(item => {
+                            appendMessage(item.user, 'user', false);
+                            appendMessage(item.bot, 'bot', false);
+                            addHistorySidebar(item.user);
+                        });
+                        triggerMathJax();
+                    }
                 });
         };
+
+        function showChatView() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('messageContainer').style.display = 'flex';
+        }
+
+        function triggerMathJax() {
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function appendMessage(text, sender, scroll = true) {
+            showChatView();
+            const container = document.getElementById('messageContainer');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}-message`;
+            msgDiv.textContent = text;
+            container.appendChild(msgDiv);
+
+            if (scroll) {
+                const chatBox = document.getElementById('chatBox');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function addHistorySidebar(text) {
+            const historyList = document.getElementById('historyList');
+            const li = document.createElement('li');
+            li.className = 'history-item';
+            li.textContent = text;
+            historyList.appendChild(li);
+        }
 
         function sendMessage() {
             const input = document.getElementById('userInput');
             const text = input.value.trim();
             if (!text) return;
 
-            const chatBox = document.getElementById('chatBox');
-            chatBox.innerHTML += `<div class="message user-message">${escapeHtml(text)}</div>`;
+            appendMessage(text, 'user');
             input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
 
             fetch('/api/chat', {
                 method: 'POST',
@@ -207,18 +448,18 @@
             .then(res => res.json())
             .then(data => {
                 const replyText = data.answer || data.error || "Có lỗi xảy ra.";
-                chatBox.innerHTML += `<div class="message bot-message">${escapeHtml(replyText)}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-                
-                const historyList = document.getElementById('historyList');
-                const li = document.createElement('li');
-                li.className = 'history-item';
-                li.textContent = text;
-                historyList.appendChild(li);
+                appendMessage(replyText, 'bot');
+                triggerMathJax(); // Kích hoạt hiển thị công thức toán học chuẩn đẹp
+                addHistorySidebar(text);
             })
-            .catch(err => {
-                chatBox.innerHTML += `<div class="message bot-message">Lỗi kết nối máy chủ!</div>`;
+            .catch(() => {
+                appendMessage("Lỗi kết nối máy chủ!", 'bot');
             });
+        }
+
+        function sendPrompt(promptText) {
+            document.getElementById('userInput').value = promptText;
+            sendMessage();
         }
 
         function handleKeyPress(event) {
@@ -230,13 +471,11 @@
         function clearHistory() {
             fetch('/api/clear', { method: 'POST' })
                 .then(() => {
-                    document.getElementById('chatBox').innerHTML = `<div class="message bot-message">Cuộc trò chuyện mới đã bắt đầu. Chào bạn!</div>`;
+                    document.getElementById('messageContainer').innerHTML = '';
+                    document.getElementById('messageContainer').style.display = 'none';
+                    document.getElementById('welcomeScreen').style.display = 'block';
                     document.getElementById('historyList').innerHTML = '';
                 });
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
     </script>
 </body>
