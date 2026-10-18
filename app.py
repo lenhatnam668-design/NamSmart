@@ -11,15 +11,23 @@ from datetime import datetime, timezone
 import requests
 from flask import Flask, render_template, request, jsonify
 
+# ==========================================
+# NamSmart - Flask + Groq AI
+# ==========================================
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
 logging.basicConfig(level=logging.INFO)
+app.logger.setLevel(logging.INFO)
 
 API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+
 TEXT_MODEL = os.getenv(
-    "GROQ_TEXT_MODEL", "openai/gpt-oss-120b"
+    "GROQ_TEXT_MODEL",
+    "openai/gpt-oss-120b",
 ).strip()
+
 VISION_MODEL = os.getenv("GROQ_MODEL", "").strip()
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -31,30 +39,105 @@ ALLOWED_MIME = {
     "image/webp",
 }
 
+MAX_IMAGE_BYTES = 6 * 1024 * 1024
+MAX_HISTORY_MESSAGES = 20
+
+# ==========================================
+# SYSTEM PROMPT - CHỐNG BỊA KIẾN THỨC
+# ==========================================
+
 SYSTEM_PROMPT = r"""
-Bạn là NamSmart, trợ lý học tập AI.
+Bạn là NamSmart, trợ lý AI học tập dành cho học sinh Việt Nam.
+Ưu tiên hàng đầu: chính xác, trung thực và giải thích dễ hiểu.
 
-NGÔN NGỮ:
+I. NGÔN NGỮ
 - Mặc định trả lời bằng tiếng Việt tự nhiên.
-- Nếu người dùng hỏi hoàn toàn bằng tiếng Anh, hãy trả lời bằng tiếng Anh.
+- Nếu người dùng hỏi hoàn toàn bằng tiếng Anh, hãy trả lời
+  bằng tiếng Anh.
 - Nếu người dùng yêu cầu ngôn ngữ cụ thể, hãy dùng ngôn ngữ đó.
-- Nếu câu hỏi pha trộn ngôn ngữ, ưu tiên tiếng Việt.
+- Trình bày rõ ràng, phù hợp với học sinh.
 
-CHẤT LƯỢNG:
-- Trả lời rõ ràng, chính xác, phù hợp với học sinh.
-- Giải bài tập theo từng bước khi cần thiết.
-- Không tự bịa dữ kiện.
-- Khi phân tích ảnh, chỉ kết luận dựa trên nội dung nhìn thấy.
-- Với IELTS, đưa ra ví dụ tự nhiên và phù hợp trình độ.
+II. NGUYÊN TẮC CHÍNH XÁC
+- Không tự bịa dữ kiện, số liệu, công thức, sự kiện hoặc đáp án.
+- Không trình bày suy đoán như một sự thật đã được xác minh.
+- Không bịa nguồn tài liệu, đường dẫn, tên sách, số trang,
+  trích dẫn hoặc thông tin xuất bản.
+- Không khẳng định đã tra cứu hay kiểm chứng khi chưa thực sự
+  có nguồn để đối chiếu.
+- Nếu không chắc chắn, hãy nói rõ giới hạn và phần chưa chắc.
+- Nếu thiếu dữ kiện, hãy hỏi lại hoặc nêu rõ giả định cần thiết.
+- Không đồng ý với người dùng chỉ để làm họ hài lòng.
+- Khi phát hiện lỗi trong lập luận, hãy sửa và giải thích.
 
-TOÁN HỌC:
+III. NGỮ VĂN VÀ TÁC PHẨM VĂN HỌC
+- Phân biệt nguyên văn, tóm tắt, diễn giải và phân tích.
+- Không tự sáng tác câu thơ hoặc câu văn rồi gán cho tác giả.
+- Chỉ chép nguyên văn khi có căn cứ đủ tin cậy.
+- Nếu không chắc chính xác từng câu chữ, hãy nói rõ chưa thể
+  xác minh nguyên văn; không dùng trí nhớ không chắc chắn
+  để tạo ra một bản gốc giả.
+- Không tự bịa năm sáng tác, năm xuất bản, tập thơ,
+  nhà xuất bản, số trang hoặc dị bản.
+- Khi phân tích tác phẩm, dựa vào văn bản có căn cứ.
+- Phân biệt dẫn chứng trong tác phẩm với nhận xét của người viết.
+- Nếu người dùng cung cấp ảnh hoặc văn bản, ưu tiên nội dung đó.
+- Nếu ảnh mờ hoặc thiếu chữ, hãy yêu cầu ảnh rõ hơn.
+- Không tự ý sửa câu chữ trong văn bản được trích dẫn.
+
+IV. CÁC MÔN HỌC
+- Toán: giải từng bước và kiểm tra kết quả.
+- Ngữ văn: lập luận có căn cứ, không bịa dẫn chứng.
+- Lịch sử: phân biệt sự kiện, thời gian và nhận định.
+- Địa lí: giải thích số liệu, bản đồ và khái niệm có căn cứ.
+- Khoa học: nêu điều kiện áp dụng và đơn vị khi cần.
+- Với câu hỏi phụ thuộc chương trình học, hãy hỏi rõ lớp,
+  bộ sách hoặc yêu cầu đề bài nếu cần thiết.
+- Nếu đề thiếu dữ kiện hoặc có nhiều cách hiểu, hãy chỉ rõ.
+
+V. GIẢI BÀI TẬP
+- Đọc kỹ đề trước khi giải.
+- Không tự thêm dữ kiện không có trong đề.
+- Giải thích các bước biến đổi và phương pháp.
+- Kiểm tra phép tính và đáp án cuối.
+- Với câu hỏi trắc nghiệm, giải thích lý do chọn đáp án khi cần.
+- Nếu có nhiều phương pháp, ưu tiên phương pháp phù hợp trình độ.
+
+VI. PHÂN TÍCH ẢNH
+- Chỉ kết luận từ nội dung nhìn thấy và kiến thức có căn cứ.
+- Không đoán chữ bị che, mờ hoặc nằm ngoài ảnh.
+- Phân biệt nội dung đọc được với phần suy luận.
+- Nếu không đọc được đề chính xác, hãy yêu cầu ảnh rõ hơn.
+
+VII. IELTS VÀ TIẾNG ANH
+- Đưa ra ví dụ tự nhiên, đúng ngữ pháp và phù hợp trình độ.
+- Phân biệt câu trả lời mẫu với đáp án duy nhất.
+- Điểm IELTS do AI đưa ra chỉ là ước lượng, không phải điểm
+  chính thức của giám khảo.
+
+VIII. CÔNG THỨC TOÁN
 - Dùng LaTeX chuẩn.
-- Công thức trong dòng viết bằng \( ... \).
-- Công thức riêng dòng viết bằng \[ ... \].
-- Không đặt công thức toán trong khối mã.
+- Công thức trong dòng dùng \( ... \).
+- Công thức riêng dòng dùng \[ ... \].
 - Giải thích các bước biến đổi rõ ràng.
+- Không đặt công thức trong khối mã nếu không cần thiết.
+
+IX. NGUỒN VÀ GIỚI HẠN
+- Không nói đã tra cứu nếu không có công cụ tra cứu thực tế.
+- Không tạo nguồn tham khảo hoặc đường dẫn giả.
+- Với thông tin quan trọng, hãy khuyến khích đối chiếu sách giáo khoa
+  hoặc tài liệu chính thức.
+- Nếu không có tài liệu để xác minh nguyên văn, hãy nói rõ.
+
+X. NGUYÊN TẮC CUỐI
+- Chính xác quan trọng hơn trả lời dài hoặc tỏ ra chắc chắn.
+- Không bịa thông tin để lấp chỗ trống.
+- Trung thực về giới hạn của mình.
+- Khi cần, đề nghị người dùng cung cấp tài liệu để kiểm tra.
 """
 
+# ==========================================
+# DATABASE
+# ==========================================
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -63,6 +146,7 @@ def now_iso():
 def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=20)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -76,6 +160,7 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
         """)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,20 +174,23 @@ def init_db():
                     ON DELETE CASCADE
             )
         """)
+
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_messages_conversation
             ON messages(conversation_id)
         """)
 
 
-init_db()
-
-
 def save_message(conversation_id, role, content, image=None):
     with get_db() as conn:
         conn.execute("""
-            INSERT INTO messages
-            (conversation_id, role, content, image, created_at)
+            INSERT INTO messages (
+                conversation_id,
+                role,
+                content,
+                image,
+                created_at
+            )
             VALUES (?, ?, ?, ?, ?)
         """, (
             conversation_id,
@@ -111,6 +199,7 @@ def save_message(conversation_id, role, content, image=None):
             image,
             now_iso(),
         ))
+
         conn.execute("""
             UPDATE conversations
             SET updated_at = ?
@@ -122,14 +211,21 @@ def create_conversation(title):
     conversation_id = str(uuid.uuid4())
     timestamp = now_iso()
 
+    clean_title = (title or "Cuộc trò chuyện mới").strip()
+    clean_title = clean_title[:80] or "Cuộc trò chuyện mới"
+
     with get_db() as conn:
         conn.execute("""
-            INSERT INTO conversations
-            (id, title, created_at, updated_at)
+            INSERT INTO conversations (
+                id,
+                title,
+                created_at,
+                updated_at
+            )
             VALUES (?, ?, ?, ?)
         """, (
             conversation_id,
-            title[:80] or "Cuộc trò chuyện mới",
+            clean_title,
             timestamp,
             timestamp,
         ))
@@ -147,14 +243,19 @@ def valid_conversation(conversation_id):
     return row is not None
 
 
+init_db()
+
+# ==========================================
+# IMAGE VALIDATION
+# ==========================================
+
 def decode_image(image, mime):
     if not isinstance(image, str):
         raise ValueError("Dữ liệu ảnh không hợp lệ.")
 
-    # Trình duyệt hiện gửi Data URI từ FileReader.
     if image.startswith("data:"):
         try:
-            header, image = image.split(",", 1)
+            header, encoded = image.split(",", 1)
         except ValueError:
             raise ValueError("Data URI ảnh không hợp lệ.")
 
@@ -164,10 +265,16 @@ def decode_image(image, mime):
         actual_mime = header[5:].split(";")[0].lower()
 
         if actual_mime != mime:
-            raise ValueError("Định dạng ảnh không khớp image_mime.")
+            raise ValueError(
+                "Định dạng ảnh không khớp với image_mime."
+            )
+
+        image = encoded
 
     if mime not in ALLOWED_MIME:
-        raise ValueError("Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP.")
+        raise ValueError(
+            "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP."
+        )
 
     try:
         raw = base64.b64decode(image, validate=True)
@@ -177,24 +284,29 @@ def decode_image(image, mime):
     if not raw:
         raise ValueError("Ảnh đang trống.")
 
-    if len(raw) > 6 * 1024 * 1024:
+    if len(raw) > MAX_IMAGE_BYTES:
         raise ValueError("Ảnh tối đa 6 MB.")
 
-    return raw, image
+    return raw
 
+
+# ==========================================
+# GROQ API
+# ==========================================
 
 def ask_groq(model, messages):
     if not API_KEY:
         return None, 500, {
             "error": {
-                "message": "Chưa cấu hình GROQ_API_KEY trên Render."
+                "message":
+                    "Chưa cấu hình GROQ_API_KEY trên Render."
             }
         }
 
     if not model:
         return None, 500, {
             "error": {
-                "message": "Chưa cấu hình tên model."
+                "message": "Chưa cấu hình tên model Groq."
             }
         }
 
@@ -207,7 +319,7 @@ def ask_groq(model, messages):
     payload = {
         "model": model,
         "messages": messages,
-        "temperature": 0.4,
+        "temperature": 0.2,
         "max_tokens": 4096,
     }
 
@@ -235,10 +347,20 @@ def ask_groq(model, messages):
                 model,
                 data,
             )
+
             return None, response.status_code, data
 
+        choices = data.get("choices") or []
+
+        if not choices:
+            return None, 502, {
+                "error": {
+                    "message": "Groq không trả về choices."
+                }
+            }
+
         answer = (
-            data.get("choices", [{}])[0]
+            choices[0]
             .get("message", {})
             .get("content")
         )
@@ -253,20 +375,33 @@ def ask_groq(model, messages):
         return answer.strip(), None, None
 
     except requests.Timeout:
+        app.logger.warning(
+            "Groq timeout | model=%s",
+            model,
+        )
+
         return None, 504, {
             "error": {
                 "message": "Groq phản hồi quá lâu. Hãy thử lại."
             }
         }
 
-    except requests.RequestException as exc:
-        app.logger.exception("Lỗi kết nối Groq")
+    except requests.RequestException:
+        app.logger.exception(
+            "Lỗi kết nối Groq | model=%s",
+            model,
+        )
+
         return None, 502, {
             "error": {
-                "message": str(exc)
+                "message": "Không thể kết nối đến Groq API."
             }
         }
 
+
+# ==========================================
+# WEBSITE ROUTES
+# ==========================================
 
 @app.get("/")
 def index():
@@ -281,7 +416,10 @@ def health():
     })
 
 
-# API lịch sử: app.js đang gọi /api/conversations
+# ==========================================
+# CONVERSATION HISTORY API
+# ==========================================
+
 @app.get("/api/conversations")
 def list_conversations():
     with get_db() as conn:
@@ -344,24 +482,34 @@ def get_conversation(conversation_id):
 def delete_conversation(conversation_id):
     with get_db() as conn:
         conn.execute("BEGIN")
-        conn.execute(
-            "DELETE FROM messages WHERE conversation_id = ?",
-            (conversation_id,),
-        )
-        result = conn.execute(
-            "DELETE FROM conversations WHERE id = ?",
-            (conversation_id,),
-        )
 
-        if result.rowcount == 0:
+        exists = conn.execute(
+            "SELECT id FROM conversations WHERE id = ?",
+            (conversation_id,),
+        ).fetchone()
+
+        if exists is None:
             return jsonify({
                 "error": "Không tìm thấy cuộc trò chuyện."
             }), 404
 
+        conn.execute(
+            "DELETE FROM messages WHERE conversation_id = ?",
+            (conversation_id,),
+        )
+
+        conn.execute(
+            "DELETE FROM conversations WHERE id = ?",
+            (conversation_id,),
+        )
+
     return jsonify({"ok": True})
 
 
-# API chat: giữ đúng đường dẫn /api/chat của app.js
+# ==========================================
+# CHAT API
+# ==========================================
+
 @app.post("/api/chat")
 def chat():
     if not API_KEY:
@@ -385,72 +533,111 @@ def chat():
             "error": "Nhập câu hỏi hoặc chọn ảnh trước nhé."
         }), 400
 
-    mime = "image/jpeg"
+    # --------------------------------------
+    # Validate image if provided
+    # --------------------------------------
+
     image_for_ai = None
     image_for_history = None
 
     if image:
-        # Đọc MIME từ Data URI do app.js gửi.
-        if isinstance(image, str) and image.startswith("data:"):
+        if not isinstance(image, str):
+            return jsonify({
+                "error": "Dữ liệu ảnh không hợp lệ."
+            }), 400
+
+        mime = "image/jpeg"
+
+        if image.startswith("data:"):
             match = re.match(
                 r"^data:(image/(?:jpeg|png|webp));base64,",
                 image,
                 flags=re.IGNORECASE,
             )
+
             if not match:
                 return jsonify({
-                    "error": "Ảnh phải là JPEG, PNG hoặc WEBP."
+                    "error":
+                        "Ảnh phải là JPEG, PNG hoặc WEBP."
                 }), 400
+
             mime = match.group(1).lower()
 
         try:
-            raw, encoded = decode_image(image, mime)
+            decode_image(image, mime)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
 
-        image_for_ai = (
-            f"data:{mime};base64,{encoded}"
-        )
+        if image.startswith("data:"):
+            image_for_ai = image
+        else:
+            image_for_ai = f"data:{mime};base64,{image}"
+
         image_for_history = image_for_ai
+
+    # --------------------------------------
+    # Create or validate conversation
+    # --------------------------------------
 
     if conversation_id:
         conversation_id = str(conversation_id)
 
         if not valid_conversation(conversation_id):
             return jsonify({
-                "error": "Cuộc trò chuyện không tồn tại. Hãy tạo cuộc trò chuyện mới."
+                "error": (
+                    "Cuộc trò chuyện không tồn tại. "
+                    "Hãy tạo cuộc trò chuyện mới."
+                )
             }), 404
     else:
         title = prompt or "Phân tích ảnh bài tập"
         conversation_id = create_conversation(title)
 
-    # Lưu câu hỏi người dùng và ảnh để xem lại lịch sử.
+    # --------------------------------------
+    # Save current user message
+    # --------------------------------------
+
+    user_text = prompt or "📷 Hãy đọc và giải bài trong ảnh này."
+
     save_message(
         conversation_id,
         "user",
-        prompt or "📷 Hãy đọc và giải bài trong ảnh này.",
+        user_text,
         image_for_history,
     )
 
-    # Lấy ngữ cảnh hội thoại gần nhất.
+    # --------------------------------------
+    # Load recent conversation context
+    # --------------------------------------
+
     with get_db() as conn:
         rows = conn.execute("""
             SELECT role, content, image
             FROM messages
             WHERE conversation_id = ?
             ORDER BY id DESC
-            LIMIT 20
-        """, (conversation_id,)).fetchall()
+            LIMIT ?
+        """, (
+            conversation_id,
+            MAX_HISTORY_MESSAGES,
+        )).fetchall()
 
     rows = list(reversed(rows))
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT}
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        }
     ]
 
     for row in rows:
         role = row["role"]
         content = row["content"]
         saved_image = row["image"]
+
+        if role not in ("user", "assistant"):
+            continue
 
         if role == "user" and saved_image:
             user_content = [
@@ -460,9 +647,12 @@ def chat():
                 },
                 {
                     "type": "image_url",
-                    "image_url": {"url": saved_image},
+                    "image_url": {
+                        "url": saved_image,
+                    },
                 },
             ]
+
             messages.append({
                 "role": "user",
                 "content": user_content,
@@ -473,35 +663,59 @@ def chat():
                 "content": content,
             })
 
-    model = VISION_MODEL if image_for_ai else TEXT_MODEL
+    # --------------------------------------
+    # Select model
+    # --------------------------------------
 
-    if image_for_ai and not VISION_MODEL:
-        return jsonify({
-            "error": (
-                "Chưa cấu hình GROQ_MODEL cho ảnh. "
-                "Hãy chọn model vision đang được Groq hỗ trợ."
-            ),
-            "conversation_id": conversation_id,
-        }), 500
+    if image_for_ai:
+        model = VISION_MODEL
+
+        if not model:
+            return jsonify({
+                "error": (
+                    "Chưa cấu hình GROQ_MODEL cho ảnh. "
+                    "Hãy chọn model vision được Groq hỗ trợ."
+                ),
+                "conversation_id": conversation_id,
+            }), 500
+    else:
+        model = TEXT_MODEL
+
+    # --------------------------------------
+    # Request Groq
+    # --------------------------------------
 
     answer, status, detail = ask_groq(model, messages)
 
     if status:
         app.logger.error(
-            "Chat failed | status=%s | model=%s | detail=%s",
+            "Chat failed | status=%s | model=%s",
             status,
             model,
-            detail,
         )
+
+        # Giữ thông tin chi tiết trong log máy chủ.
+        # Không trả toàn bộ lỗi nội bộ của nhà cung cấp
+        # về trình duyệt.
         return jsonify({
-            "error": f"Groq API báo lỗi HTTP {status}.",
+            "error": (
+                "Groq API gặp lỗi. "
+                "Hãy kiểm tra cấu hình và Render Logs."
+            ),
             "status": status,
-            "detail": detail,
             "model_used": model,
             "conversation_id": conversation_id,
         }), 502
 
-    save_message(conversation_id, "assistant", answer)
+    # --------------------------------------
+    # Save and return assistant response
+    # --------------------------------------
+
+    save_message(
+        conversation_id,
+        "assistant",
+        answer,
+    )
 
     return jsonify({
         "answer": answer,
@@ -509,6 +723,10 @@ def chat():
         "model_used": model,
     })
 
+
+# ==========================================
+# ERROR HANDLERS
+# ==========================================
 
 @app.errorhandler(413)
 def too_large(_error):
@@ -527,10 +745,15 @@ def not_found(_error):
 @app.errorhandler(500)
 def server_error(_error):
     app.logger.exception("Lỗi máy chủ")
+
     return jsonify({
         "error": "Máy chủ gặp lỗi. Hãy kiểm tra Render Logs."
     }), 500
 
+
+# ==========================================
+# START SERVER
+# ==========================================
 
 if __name__ == "__main__":
     app.run(
