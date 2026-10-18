@@ -30,6 +30,57 @@
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+
+    <!-- NamSmart V5: giao diện nâng cấp ngay trong index.html, không cần sửa style.css -->
+    <style>
+      :root{--blue:#5865f2;--ink:#17213a;--border:#e7eaf5;--bg:#f6f8ff}
+      body{background:var(--bg)}
+      .app-shell{background:radial-gradient(ellipse at 78% 0%,#f0edff 0,transparent 35%),var(--bg)}
+      .sidebar{box-shadow:8px 0 30px rgba(36,48,100,.025);padding-top:23px}
+      .brand-icon{box-shadow:0 8px 22px rgba(83,105,245,.2)}
+      .new-chat{background:linear-gradient(115deg,#5268f6 0%,#8061ed 100%);box-shadow:0 10px 24px rgba(91,101,237,.22);transition:transform .2s,box-shadow .2s}
+      .new-chat:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(91,101,237,.3)}
+      .nav-link{transition:background .18s,color .18s,transform .18s}
+      .nav-link:hover{transform:translateX(2px)}
+      .topbar{background:rgba(255,255,255,.9);backdrop-filter:blur(14px)}
+      .online-pill{border:1px solid #d8f6e9}
+      .avatar{box-shadow:0 0 0 5px #f4f5ff}
+      .content{scrollbar-width:thin;scrollbar-color:#cbd2eb transparent}
+      .hero{background:linear-gradient(112deg,#e9efff 0%,#f1edff 58%,#f8f3ff 100%);border:1px solid rgba(255,255,255,.9);box-shadow:0 16px 45px rgba(77,89,170,.07);isolation:isolate}
+      .hero:before{content:"";position:absolute;z-index:-1;width:260px;height:260px;right:-75px;top:-130px;border-radius:50%;background:rgba(255,255,255,.42);box-shadow:0 0 0 35px rgba(255,255,255,.14),0 0 0 70px rgba(255,255,255,.09)}
+      .hero-badge{border:1px solid rgba(255,255,255,.9);box-shadow:0 4px 14px rgba(77,89,170,.04)}
+      .hero h1{letter-spacing:-1.5px}
+      .hero-visual{animation:namFloat 5s ease-in-out infinite}
+      .visual-star.one{animation:namTwinkle 2.8s ease-in-out infinite}
+      .visual-star.two{animation:namTwinkle 3.3s ease-in-out infinite reverse}
+      .section-heading h2{letter-spacing:-.55px}
+      .feature-card{overflow:hidden;box-shadow:0 5px 18px rgba(36,48,100,.025);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+      .feature-card:before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;opacity:0;transition:opacity .2s;background:linear-gradient(90deg,#5b72f6,#a16be8)}
+      .feature-card:hover{transform:translateY(-5px);border-color:#dce1ff;box-shadow:0 16px 32px rgba(53,65,132,.1)}
+      .feature-card:hover:before{opacity:1}
+      .feature-icon{transition:transform .22s ease}
+      .feature-card:hover .feature-icon{transform:scale(1.07) rotate(-3deg)}
+      .feature-arrow{transition:transform .2s,color .2s}
+      .feature-card:hover .feature-arrow{transform:translateX(4px);color:#5865f2}
+      .photo-banner{background:linear-gradient(110deg,#f0f3ff,#f7f5ff);border-style:solid;box-shadow:0 8px 24px rgba(66,81,170,.035)}
+      .photo-banner button{transition:transform .18s,box-shadow .18s;background:#fff}
+      .photo-banner button:hover{transform:translateY(-2px);box-shadow:0 7px 18px rgba(71,85,190,.12)}
+      .composer-area{background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+      .composer{border-color:#e1e6f4;box-shadow:0 5px 20px rgba(39,54,110,.045);transition:border-color .2s,box-shadow .2s}
+      .composer:focus-within{border-color:#aeb9ff;box-shadow:0 0 0 4px rgba(87,105,244,.08),0 7px 22px rgba(39,54,110,.05)}
+      .send-button{background:linear-gradient(135deg,#596df7,#7964ef);box-shadow:0 5px 12px rgba(83,101,239,.22);transition:transform .18s,box-shadow .18s}
+      .send-button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 16px rgba(83,101,239,.3)}
+      .history-card{transition:transform .18s,border-color .18s,box-shadow .18s}
+      .history-card:hover{transform:translateY(-2px)}
+      .message-bubble{box-shadow:0 4px 14px rgba(31,43,83,.025)}
+      .message-row.user .message-bubble{background:linear-gradient(135deg,#586df4,#7164eb);box-shadow:0 6px 18px rgba(86,105,240,.16)}
+      .toast{backdrop-filter:blur(12px)}
+      @keyframes namFloat{0%,100%{translate:0 0}50%{translate:0 -8px}}
+      @keyframes namTwinkle{0%,100%{opacity:.55;scale:1}50%{opacity:1;scale:1.16}}
+      @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+      @media(max-width:760px){.hero:before{right:-155px}.hero-visual{right:-25px}.feature-card:hover{transform:translateY(-2px)}}
+    </style>
+
 </head>
 <body>
     <div class="app-shell">
