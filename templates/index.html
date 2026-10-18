@@ -1,232 +1,106 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-   <title>Nam Smart – Muốn Thủ Khoa, hãy dùng NamSmart</title>
-<!-- Thêm các thẻ Open Graph để ép ứng dụng chat nhận tiêu đề mới -->
-<meta property="og:title" content="Nam Smart – Muốn Thủ Khoa, hãy dùng NamSmart">
-<meta property="og:description" content="Trợ lý học tập thông minh giúp bạn giải toán, văn, tiếng anh và hơn thế nữa.">
-<meta property="og:url" content="https://namsmart.onrender.com/">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nam Smart - Trợ lý học tập thông minh</title>
+    
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Markdown & MathJax support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['\\(', '\\)'], ['$', '$']],
-                displayMath: [['\\[', '\\]'], ['$$', '$$']],
-                processEscapes: true
+                displayMath: [['\\[', '\\]'], ['$$', '$$']]
             },
-            options: {
-                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-            },
-            startup: { typeset: false }
+            svg: { fontCache: 'global' }
         };
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- CSS File -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script defer src="{{ url_for('static', filename='app.js') }}"></script>
-
-    <!-- NamSmart V5: giao diện nâng cấp ngay trong index.html, không cần sửa style.css -->
-    <style>
-      :root{--blue:#5865f2;--ink:#17213a;--border:#e7eaf5;--bg:#f6f8ff}
-      body{background:var(--bg)}
-      .app-shell{background:radial-gradient(ellipse at 78% 0%,#f0edff 0,transparent 35%),var(--bg)}
-      .sidebar{box-shadow:8px 0 30px rgba(36,48,100,.025);padding-top:23px}
-      .brand-icon{box-shadow:0 8px 22px rgba(83,105,245,.2)}
-      .new-chat{background:linear-gradient(115deg,#5268f6 0%,#8061ed 100%);box-shadow:0 10px 24px rgba(91,101,237,.22);transition:transform .2s,box-shadow .2s}
-      .new-chat:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(91,101,237,.3)}
-      .nav-link{transition:background .18s,color .18s,transform .18s}
-      .nav-link:hover{transform:translateX(2px)}
-      .topbar{background:rgba(255,255,255,.9);backdrop-filter:blur(14px)}
-      .online-pill{border:1px solid #d8f6e9}
-      .avatar{box-shadow:0 0 0 5px #f4f5ff}
-      .content{scrollbar-width:thin;scrollbar-color:#cbd2eb transparent}
-      .hero{background:linear-gradient(112deg,#e9efff 0%,#f1edff 58%,#f8f3ff 100%);border:1px solid rgba(255,255,255,.9);box-shadow:0 16px 45px rgba(77,89,170,.07);isolation:isolate}
-      .hero:before{content:"";position:absolute;z-index:-1;width:260px;height:260px;right:-75px;top:-130px;border-radius:50%;background:rgba(255,255,255,.42);box-shadow:0 0 0 35px rgba(255,255,255,.14),0 0 0 70px rgba(255,255,255,.09)}
-      .hero-badge{border:1px solid rgba(255,255,255,.9);box-shadow:0 4px 14px rgba(77,89,170,.04)}
-      .hero h1{letter-spacing:-1.5px}
-      .hero-visual{animation:namFloat 5s ease-in-out infinite}
-      .visual-star.one{animation:namTwinkle 2.8s ease-in-out infinite}
-      .visual-star.two{animation:namTwinkle 3.3s ease-in-out infinite reverse}
-      .section-heading h2{letter-spacing:-.55px}
-      .feature-card{overflow:hidden;box-shadow:0 5px 18px rgba(36,48,100,.025);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
-      .feature-card:before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;opacity:0;transition:opacity .2s;background:linear-gradient(90deg,#5b72f6,#a16be8)}
-      .feature-card:hover{transform:translateY(-5px);border-color:#dce1ff;box-shadow:0 16px 32px rgba(53,65,132,.1)}
-      .feature-card:hover:before{opacity:1}
-      .feature-icon{transition:transform .22s ease}
-      .feature-card:hover .feature-icon{transform:scale(1.07) rotate(-3deg)}
-      .feature-arrow{transition:transform .2s,color .2s}
-      .feature-card:hover .feature-arrow{transform:translateX(4px);color:#5865f2}
-      .photo-banner{background:linear-gradient(110deg,#f0f3ff,#f7f5ff);border-style:solid;box-shadow:0 8px 24px rgba(66,81,170,.035)}
-      .photo-banner button{transition:transform .18s,box-shadow .18s;background:#fff}
-      .photo-banner button:hover{transform:translateY(-2px);box-shadow:0 7px 18px rgba(71,85,190,.12)}
-      .composer-area{background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
-      .composer{border-color:#e1e6f4;box-shadow:0 5px 20px rgba(39,54,110,.045);transition:border-color .2s,box-shadow .2s}
-      .composer:focus-within{border-color:#aeb9ff;box-shadow:0 0 0 4px rgba(87,105,244,.08),0 7px 22px rgba(39,54,110,.05)}
-      .send-button{background:linear-gradient(135deg,#596df7,#7964ef);box-shadow:0 5px 12px rgba(83,101,239,.22);transition:transform .18s,box-shadow .18s}
-      .send-button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 16px rgba(83,101,239,.3)}
-      .history-card{transition:transform .18s,border-color .18s,box-shadow .18s}
-      .history-card:hover{transform:translateY(-2px)}
-      .message-bubble{box-shadow:0 4px 14px rgba(31,43,83,.025)}
-      .message-row.user .message-bubble{background:linear-gradient(135deg,#586df4,#7164eb);box-shadow:0 6px 18px rgba(86,105,240,.16)}
-      .toast{backdrop-filter:blur(12px)}
-      @keyframes namFloat{0%,100%{translate:0 0}50%{translate:0 -8px}}
-      @keyframes namTwinkle{0%,100%{opacity:.55;scale:1}50%{opacity:1;scale:1.16}}
-      @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
-      @media(max-width:760px){.hero:before{right:-155px}.hero-visual{right:-25px}.feature-card:hover{transform:translateY(-2px)}}
-    </style>
-
 </head>
 <body>
-    <div class="app-shell">
-        <aside class="sidebar" id="sidebar">
-            <div class="brand">
-                <!-- Thay icon bằng tệp logo.jpg từ thư mục static -->
-                <div class="brand-icon" style="padding:0; overflow:hidden; background:none; box-shadow:none;">
-                    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" style="width:100%; height:100%; object-fit:cover; border-radius:13px;">
-                </div>
-                <div>
-                    <strong>Nam Smart</strong>
-                    <small>THÔNG MINH NHƯ CÁI TÊN</small>
-                </div>
-                <button class="mobile-close" id="closeSidebar" aria-label="Đóng menu"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <button class="new-chat" id="newChat"><i class="fa-solid fa-plus"></i> Cuộc trò chuyện mới <span>+</span></button>
-            <div class="nav-label">KHÁM PHÁ</div>
-            <nav class="main-nav">
-                <button id="homeNav" class="nav-link active"><i class="fa-solid fa-house"></i> Trang chủ</button>
-                <button id="historyNav" class="nav-link"><i class="fa-regular fa-clock"></i> Lịch sử trò chuyện</button>
-            </nav>
-            <div class="history-head">
-                <span>GẦN ĐÂY</span>
-                <button id="refreshHistory" title="Tải lại lịch sử" aria-label="Tải lại lịch sử"><i class="fa-solid fa-rotate"></i></button>
-            </div>
-            <div class="history-list" id="historyList">
-                <p class="muted-history">Chưa có cuộc trò chuyện nào.</p>
-            </div>
-            <div class="sidebar-bottom">
-                <div class="sidebar-tip">
-                    <i class="fa-solid fa-lightbulb"></i>
-                    <div>
-                        <strong>Mẹo học tập</strong>
-                        <p>Chụp đề bài để được hướng dẫn giải từng bước!</p>
-                    </div>
-                </div>
-                <div class="version"><span class="status-dot"></span> Nam Smart <span>v2.0</span></div>
-            </div>
-        </aside>
-        <div class="overlay" id="overlay"></div>
-        <main class="main">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button class="icon-button menu-toggle" id="openSidebar" aria-label="Mở menu"><i class="fa-solid fa-bars"></i></button>
-                    <span id="breadcrumb"><i class="fa-solid fa-house"></i> / Trang chủ</span>
-                </div>
-                <div class="topbar-right">
-                    <span class="online-pill"><span></span> Trợ lý học tập AI</span>
-                    <div class="avatar">NS</div>
-                </div>
-            </header>
-            <section class="content" id="content">
-                <div class="home" id="homeScreen">
-                    <div class="hero">
-                        <div class="hero-badge"><i class="fa-solid fa-sparkles"></i> TRỢ LÝ HỌC TẬP THÔNG MINH</div>
-                        <h1>Xin chào! <span class="wave">👋</span><br><span class="gradient-text">Hôm nay bạn muốn học gì?</span></h1>
-                        <p>Hỏi bất kỳ điều gì, gửi ảnh bài tập hoặc luyện tập cùng Nam Smart. Mỗi ngày học thêm một điều hay!</p>
-                        <div class="hero-visual">
-                            <i class="fa-solid fa-graduation-cap"></i>
-                            <span class="visual-star one">✦</span>
-                            <span class="visual-star two">✧</span>
-                        </div>
-                    </div>
-                    <div class="section-heading">
-                        <div>
-                            <h2>Khám phá cùng Nam Smart</h2>
-                            <p>Chọn một chủ đề để bắt đầu</p>
-                        </div>
-                        <span>4 chủ đề <i class="fa-solid fa-arrow-trend-up"></i></span>
-                    </div>
-                    <div class="feature-grid">
-                        <button class="feature-card blue" data-prompt="Giải giúp mình phương trình 2x - 1 = 0, trình bày từng bước bằng công thức toán học.">
-                            <span class="feature-icon"><i class="fa-solid fa-calculator"></i></span>
-                            <strong>Giải bài Toán</strong>
-                            <p>Giải chi tiết, công thức rõ ràng và dễ hiểu.</p>
-                            <span class="feature-arrow"><i class="fa-solid fa-arrow-right"></i></span>
-                        </button>
-                        <button class="feature-card purple" data-prompt="Hướng dẫn mình lập dàn ý phân tích một tác phẩm văn học.">
-                            <span class="feature-icon"><i class="fa-solid fa-book-open"></i></span>
-                            <strong>Học Ngữ văn</strong>
-                            <p>Gợi ý dàn ý, phân tích và cải thiện bài viết.</p>
-                            <span class="feature-arrow"><i class="fa-solid fa-arrow-right"></i></span>
-                        </button>
-                        <button class="feature-card green" data-prompt="Hãy luyện hội thoại tiếng Anh giao tiếp hằng ngày cùng mình.">
-                            <span class="feature-icon"><i class="fa-solid fa-language"></i></span>
-                            <strong>Luyện Tiếng Anh</strong>
-                            <p>Học từ vựng, ngữ pháp và giao tiếp.</p>
-                            <span class="feature-arrow"><i class="fa-solid fa-arrow-right"></i></span>
-                        </button>
-                        <button class="feature-card orange" data-prompt="Tạo 5 câu hỏi trắc nghiệm Sinh học từ dễ đến khó để mình ôn tập.">
-                            <span class="feature-icon"><i class="fa-solid fa-bullseye"></i></span>
-                            <strong>Kiểm tra kiến thức</strong>
-                            <p>Ôn tập thông minh với câu hỏi tương tác.</p>
-                            <span class="feature-arrow"><i class="fa-solid fa-arrow-right"></i></span>
-                        </button>
-                    </div>
-                    <div class="photo-banner">
-                        <div class="photo-icon"><i class="fa-solid fa-camera"></i></div>
-                        <div>
-                            <strong>Có bài tập khó? Chụp ảnh ngay!</strong>
-                            <p>Gửi hình ảnh bài tập, Nam Smart sẽ đọc đề và hướng dẫn bạn giải.</p>
-                        </div>
-                        <button id="bannerUpload">Tải ảnh lên <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-                    </div>
-                </div>
-                <div class="history-page hidden" id="historyScreen">
-                    <div class="page-title">
-                        <span class="page-icon"><i class="fa-regular fa-clock"></i></span>
-                        <div>
-                            <h1>Lịch sử trò chuyện</h1>
-                            <p>Xem lại các câu hỏi và bài học trước đây của bạn.</p>
-                        </div>
-                    </div>
-                    <div class="history-grid" id="historyGrid"></div>
-                </div>
-                <div class="chat-page hidden" id="chatScreen">
-                    <div class="chat-intro">
-                        <div class="chat-intro-icon"><i class="fa-solid fa-robot"></i></div>
-                        <div>
-                            <strong>Nam Smart</strong>
-                            <p>Trợ lý học tập luôn sẵn sàng giúp bạn ✨</p>
-                        </div>
-                    </div>
-                    <div id="messageContainer" class="messages" aria-live="polite"></div>
-                </div>
-            </section>
-            <div class="composer-area">
-                <div class="image-preview hidden" id="imagePreview">
-                    <img id="previewImg" alt="Ảnh chuẩn bị gửi">
-                    <div>
-                        <strong id="previewName"></strong>
-                        <small>Ảnh sẽ được gửi cùng câu hỏi</small>
-                    </div>
-                    <button id="removeImage" aria-label="Bỏ ảnh"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="composer">
-                    <input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-                    <button class="compose-tool" id="uploadBtn" title="Tải ảnh bài tập" aria-label="Tải ảnh"><i class="fa-solid fa-image"></i></button>
-                    <button class="compose-tool" id="micBtn" title="Nhập bằng giọng nói" aria-label="Nhập bằng giọng nói"><i class="fa-solid fa-microphone"></i></button>
-                    <textarea id="userInput" rows="1" placeholder="Nhập câu hỏi của bạn tại đây..."></textarea>
-                    <button class="send-button" id="sendBtn" title="Gửi tin nhắn" aria-label="Gửi"><i class="fa-solid fa-arrow-up"></i></button>
-                </div>
-                <p class="composer-hint"><i class="fa-solid fa-shield-halved"></i> Nam Smart có thể mắc lỗi. Hãy kiểm tra lại các thông tin quan trọng.</p>
-            </div>
-        </main>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" onerror="this.src='https://via.placeholder.com/42/4f46e5/ffffff?text=NS'">
+            <h2>Nam Smart</h2>
+        </div>
+        
+        <button class="new-chat-btn" onclick="clearHistory()">
+            <i class="fa-solid fa-plus"></i> Cuộc trò chuyện mới
+        </button>
+        
+        <div class="history-title">Lịch sử trò chuyện</div>
+        <ul id="historyList" class="history-list"></ul>
     </div>
-    <div class="toast hidden" id="toast" role="status"></div>
+
+    <!-- Main Chat Window -->
+    <div class="main-chat">
+        <div class="chat-header">
+            <span>Trợ lý học tập AI / <b>Tất cả môn học</b></span>
+            <span class="demo-badge">● Bản demo v2.0</span>
+        </div>
+
+        <div id="chatBox" class="chat-box">
+            <!-- Welcome Screen -->
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="subtitle">YOUR PERSONAL STUDY PARTNER</div>
+                <h1>Xin chào! 👋<br><span>Hôm nay bạn muốn học gì?</span></h1>
+                <p class="welcome-desc">Chào bạn! Mình là Nam Smart. Hãy chụp ảnh đề bài, nói qua micro hoặc chọn gợi ý bên dưới để bắt đầu nhé!</p>
+
+                <div class="feature-grid">
+                    <div class="feature-card" onclick="sendPrompt('Giải giúp tôi bài toán: Tìm x biết 2x - 1 = 0')">
+                        <div class="card-icon">🧮</div>
+                        <div class="card-title">Giải bài Toán</div>
+                        <div class="card-desc">Hướng dẫn từng bước chi tiết, dễ hiểu.</div>
+                    </div>
+                    <div class="feature-card" onclick="sendPrompt('Hãy hướng dẫn tôi lập dàn ý cho bài văn phân tích tác phẩm văn học')">
+                        <div class="card-icon">✍️</div>
+                        <div class="card-title">Học Ngữ văn</div>
+                        <div class="card-desc">Lập dàn ý, phân tích và trau dồi câu từ.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages List -->
+            <div id="messageContainer" class="message-container" style="display: none;"></div>
+        </div>
+
+        <!-- Image Preview Bar -->
+        <div id="imagePreviewBar" class="image-preview-bar">
+            <img id="previewImg" src="" alt="Preview">
+            <span id="previewName"></span>
+            <button class="tool-btn" onclick="clearImage()" title="Xóa ảnh"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Floating Input Area -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;" onchange="handleImageSelected(event)">
+                
+                <button class="tool-btn" onclick="document.getElementById('imageInput').click()" title="Tải ảnh/Chụp ảnh bài tập">
+                    <i class="fa-solid fa-camera"></i>
+                </button>
+                <button id="micBtn" class="tool-btn" onclick="toggleSpeechRecognition()" title="Nói qua micro">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                
+                <input type="text" id="userInput" placeholder="Nhập câu hỏi, chụp ảnh bài tập hoặc nói..." onkeypress="handleKeyPress(event)">
+                
+                <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Logic File -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
